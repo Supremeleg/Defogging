@@ -43,3 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+.env
+.env.*
+*.env
+
+ios/Runner/Config.xcconfig
+ios/Runner/GoogleService-Info.plist
+
+# API Keys and sensitive data
+android/gradle.properties
+android/app/google-services.json
+android/app/src/main/res/values/secrets.xml
+android/keystore.properties
