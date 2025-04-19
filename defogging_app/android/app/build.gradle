@@ -5,6 +5,24 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def envProperties = new Properties()
+def envFile = rootProject.file('../.env')
+if (envFile.exists()) {
+    envFile.withReader('UTF-8') { reader ->
+        envProperties.load(reader)
+    }
+}
+
+def mapsApiKey = envProperties.getProperty('GOOGLE_MAPS_API_KEY') ?: localProperties.getProperty('GOOGLE_MAPS_API_KEY')
+
 android {
     namespace = "com.example.defogging_app"
     compileSdk = flutter.compileSdkVersion
@@ -28,6 +46,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders = [GOOGLE_MAPS_API_KEY: mapsApiKey, applicationName: "android.app.Application"]
     }
 
     buildTypes {
