@@ -17,7 +17,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   late final GoogleMapsPlaces _placesService;
-  
+
   // 添加熟悉度状态
   bool _isFamiliarityMode = true; // 默认开启熟悉度显示模式
   
@@ -82,13 +82,16 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
   void initState() {
     super.initState();
     _placesService = GoogleMapsPlaces(apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '');
+ 
   }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
     _addMarker(_center);
-    // 应用地图样式
-    controller.setMapStyle(_mapStyle);
+    // 只在遮罩模式下应用自定义样式
+    if (_isFamiliarityMode) {
+      controller.setMapStyle(_mapStyle);
+    }
   }
 
   void _addMarker(LatLng position) {
@@ -139,6 +142,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
 
   @override
   void dispose() {
+ 
     mapController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -153,19 +157,22 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
             onMapCreated: _onMapCreated,
             initialCameraPosition: CameraPosition(
               target: _center,
-              zoom: 11.0,
+              zoom: 15.0,
             ),
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapType: MapType.normal,
             markers: _markers,
+           
           ),
           // 添加熟悉度遮罩层
           if (_isFamiliarityMode)
             Positioned.fill(
-              child: Container(
-                color: Colors.black.withOpacity(_overlayOpacity),
+              child: IgnorePointer(
+                child: Container(
+                  color: Colors.black.withOpacity(_overlayOpacity),
+                ),
               ),
             ),
           Positioned(
@@ -235,6 +242,12 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
                 onPressed: () {
                   setState(() {
                     _isFamiliarityMode = !_isFamiliarityMode;
+                    // 切换遮罩模式时更新地图样式
+                    if (_isFamiliarityMode) {
+                      mapController.setMapStyle(_mapStyle);
+                    } else {
+                      mapController.setMapStyle(null); // 恢复默认样式
+                    }
                   });
                 },
               ),
@@ -275,6 +288,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
               ),
             ),
           ),
+         
         ],
       ),
     );
