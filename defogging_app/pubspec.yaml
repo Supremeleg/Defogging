@@ -38,6 +38,7 @@ dependencies:
 
   google_maps_flutter: ^2.12.1
   location: ^5.0.3
+  flutter_google_maps_webservices: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -91,3 +92,6 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  assets:
+    - .env

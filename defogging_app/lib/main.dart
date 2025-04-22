@@ -3,8 +3,10 @@ import 'dart:ui';
 import 'package:defogging_app/pages/google_map_page.dart';
 import 'package:defogging_app/pages/analytics_page.dart';
 import 'package:defogging_app/pages/settings_page.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+void main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 
@@ -83,7 +85,7 @@ class _MainPageState extends State<MainPage> {
                   child: Container(
                     height: 50,
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withAlpha(77),
                       borderRadius: BorderRadius.circular(25),
                     ),
                     child: Row(
@@ -110,15 +112,13 @@ class _MainPageState extends State<MainPage> {
                                           decoration: BoxDecoration(
                                             borderRadius: BorderRadius.circular(18),
                                             boxShadow: [
-                                              // 主发光效果
                                               BoxShadow(
-                                                color: Colors.white.withOpacity(0.7),
+                                                color: Colors.white.withAlpha(179),
                                                 blurRadius: 15,
                                                 spreadRadius: 1,
                                               ),
-                                              // 次级发光效果
                                               BoxShadow(
-                                                color: Colors.white.withOpacity(0.5),
+                                                color: Colors.white.withAlpha(128),
                                                 blurRadius: 8,
                                                 spreadRadius: 0,
                                               ),
@@ -136,7 +136,7 @@ class _MainPageState extends State<MainPage> {
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: isSelected
-                                                ? Colors.white.withOpacity(0.98)
+                                                ? Colors.white.withAlpha(250)
                                                 : Colors.transparent,
                                             borderRadius: BorderRadius.circular(18),
                                           ),
@@ -144,8 +144,8 @@ class _MainPageState extends State<MainPage> {
                                             child: Icon(
                                               _navigationIcons[index],
                                               color: isSelected 
-                                                  ? Colors.black.withOpacity(0.8)
-                                                  : Colors.white.withOpacity(0.7),
+                                                  ? Colors.black.withAlpha(204)
+                                                  : Colors.white.withAlpha(179),
                                               size: 20,
                                             ),
                                           ),
