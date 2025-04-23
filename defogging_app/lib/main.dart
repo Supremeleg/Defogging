@@ -116,13 +116,6 @@ class _MainPageState extends State<MainPage> {
     Icons.settings_outlined,
   ];
 
-  final List<Widget> _pages = [
-    const GoogleMapPage(),
-    const Center(child: Text('历史页面')),
-    const AnalyticsPage(),
-    const SettingsPage(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return MediaQuery(
@@ -130,7 +123,15 @@ class _MainPageState extends State<MainPage> {
       child: Scaffold(
         body: Stack(
           children: [
-            _pages[_selectedIndex],
+            IndexedStack(
+              index: _selectedIndex,
+              children: const [
+                GoogleMapPage(),
+                Center(child: Text('历史页面')),
+                AnalyticsPage(),
+                SettingsPage(),
+              ],
+            ),
             Positioned(
               left: 20,
               right: 20,

@@ -13,6 +13,9 @@ class LocationService {
   // 定义坐标精度（米）
   static const double _coordinatePrecision = 10.0;
   
+  // 添加位置更新回调
+  Function(LocationPoint)? onLocationUpdated;
+  
   // 计算两点之间的距离（米）
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     const double earthRadius = 6371000; // 地球半径（米）
@@ -103,6 +106,8 @@ class LocationService {
               );
               await _dbHelper.updateLocation(nearestLocation);
               print('更新位置点访问次数: ${nearestLocation.visitCount}');
+              // 通知位置更新
+              onLocationUpdated?.call(nearestLocation);
             } else {
               // 创建新的位置记录
               LocationPoint newLocation = LocationPoint(
@@ -113,6 +118,8 @@ class LocationService {
               );
               await _dbHelper.insertLocation(newLocation);
               print('新建位置点记录');
+              // 通知位置更新
+              onLocationUpdated?.call(newLocation);
             }
           } catch (e) {
             print('处理位置更新时出错: $e');

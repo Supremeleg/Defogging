@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'dart:math';
 import '../services/location_service.dart';
 import '../database/location_model.dart';
+import 'package:flutter/rendering.dart';
 
 class GoogleMapPage extends StatefulWidget {
   const GoogleMapPage({super.key});
@@ -14,9 +15,10 @@ class GoogleMapPage extends StatefulWidget {
   State<GoogleMapPage> createState() => _GoogleMapPageState();
 }
 
-class _GoogleMapPageState extends State<GoogleMapPage> {
+class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveClientMixin {
   GoogleMapController? _mapController;
   final LatLng _center = const LatLng(51.5074, -0.1278); // 伦敦坐标
+  Set<Circle> _circles = {};
   Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   late final GoogleMapsPlaces _placesService;
@@ -131,7 +133,36 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
   void _movePosition(String direction) {
     setState(() {
       _currentPosition = _calculateOffset(_currentPosition, 2.0, direction);
-      _addMarker(_currentPosition);
+      
+      // 清除现有标记
+      _markers.clear();
+      
+      // 添加新的标记
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('current_position'),
+          position: _currentPosition,
+          infoWindow: InfoWindow(
+            title: '当前位置',
+            snippet: '纬度: ${_currentPosition.latitude}, 经度: ${_currentPosition.longitude}',
+          ),
+        ),
+      );
+      
+      // 只在位置记录开启时添加白色圆点
+      if (_isTracking) {
+        _circles.add(
+          Circle(
+            circleId: CircleId(DateTime.now().toString()),
+            center: _currentPosition,
+            radius: 5, // 5米半径
+            fillColor: Colors.white.withOpacity(0.7),
+            strokeColor: Colors.white,
+            strokeWidth: 1,
+          ),
+        );
+      }
+      
       _mapController?.animateCamera(
         CameraUpdate.newLatLng(_currentPosition),
       );
@@ -139,26 +170,106 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
   }
 
   @override
+  bool get wantKeepAlive => true; // 保持页面状态
+
+  @override
   void initState() {
     super.initState();
     _placesService = GoogleMapsPlaces(apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '');
     _loadLocations();
+    
+    // 设置位置更新回调
+    _locationService.onLocationUpdated = _onLocationUpdated;
+    
+    // 默认开启位置跟踪
+    _isTracking = true;
+    _locationService.startLocationTracking();
   }
 
-  Future<void> _loadLocations() async {
-    final locations = await _locationService.getAllLocations();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadLocations(); // 在依赖变化时重新加载
+  }
+
+  void _onLocationUpdated(LocationPoint location) {
     setState(() {
-      _markers = locations.map((location) {
-        return Marker(
-          markerId: MarkerId(location.id.toString()),
+      // 添加位置点圆圈
+      _circles.add(
+        Circle(
+          circleId: CircleId(DateTime.now().toString()),
+          center: LatLng(location.latitude, location.longitude),
+          radius: 5, // 5米半径
+          fillColor: Colors.white.withOpacity(0.7),
+          strokeColor: Colors.white,
+          strokeWidth: 1,
+        ),
+      );
+      
+      // 更新或添加标记
+      final markerId = MarkerId(location.id?.toString() ?? DateTime.now().toString());
+      _markers.removeWhere((marker) => marker.markerId == markerId);
+      _markers.add(
+        Marker(
+          markerId: markerId,
           position: LatLng(location.latitude, location.longitude),
           infoWindow: InfoWindow(
             title: '访问次数: ${location.visitCount}',
             snippet: '最后访问: ${location.timestamp.toString()}',
           ),
-        );
-      }).toSet();
+        ),
+      );
     });
+  }
+
+  Future<void> _loadLocations() async {
+    try {
+      final locations = await _locationService.getAllLocations();
+      if (!mounted) return;
+      
+      setState(() {
+        // 保留当前位置标记
+        final currentPositionMarker = _markers.where((m) => m.markerId == const MarkerId('current_position')).toList();
+        
+        // 清除现有标记和圆圈，但保留当前位置标记
+        _markers.clear();
+        _circles.clear();
+        
+        // 恢复当前位置标记
+        if (currentPositionMarker.isNotEmpty) {
+          _markers.add(currentPositionMarker.first);
+        }
+        
+        // 添加所有位置点
+        for (var location in locations) {
+          // 添加圆圈
+          _circles.add(
+            Circle(
+              circleId: CircleId(location.id.toString()),
+              center: LatLng(location.latitude, location.longitude),
+              radius: 5,
+              fillColor: Colors.white.withOpacity(0.7),
+              strokeColor: Colors.white,
+              strokeWidth: 1,
+            ),
+          );
+          
+          // 添加标记
+          _markers.add(
+            Marker(
+              markerId: MarkerId(location.id.toString()),
+              position: LatLng(location.latitude, location.longitude),
+              infoWindow: InfoWindow(
+                title: '访问次数: ${location.visitCount}',
+                snippet: '最后访问: ${location.timestamp.toString()}',
+              ),
+            ),
+          );
+        }
+      });
+    } catch (e) {
+      print('加载位置点时出错: $e');
+    }
   }
 
   void _onMapCreated(GoogleMapController controller) {
@@ -182,6 +293,20 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
           ),
         ),
       );
+      
+      // 只在位置记录开启时添加白色圆点
+      if (_isTracking) {
+        _circles.add(
+          Circle(
+            circleId: CircleId(DateTime.now().toString()),
+            center: position,
+            radius: 5, // 5米半径
+            fillColor: Colors.white.withOpacity(0.7),
+            strokeColor: Colors.white,
+            strokeWidth: 1,
+          ),
+        );
+      }
     });
   }
 
@@ -235,6 +360,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // 需要调用super.build
     return Scaffold(
       body: Stack(
         children: [
@@ -249,6 +375,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
             zoomControlsEnabled: false,
             mapType: MapType.normal,
             markers: _markers,
+            circles: _circles,  // 添加圆圈集合
           ),
           // 添加熟悉度遮罩层
           if (_isFamiliarityMode)
