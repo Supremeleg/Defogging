@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_google_maps_webservices/places.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'dart:math';
 
 class GoogleMapPage extends StatefulWidget {
   const GoogleMapPage({super.key});
@@ -17,9 +18,11 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
   final Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   late final GoogleMapsPlaces _placesService;
+  LatLng _currentPosition = const LatLng(51.5074, -0.1278); // 当前位置
 
   // 添加熟悉度状态
   bool _isFamiliarityMode = true; // 默认开启熟悉度显示模式
+  double _familiarityPercentage = 75.0; // 默认熟悉度为75%
   
   // 获取遮罩不透明度
   double get _overlayOpacity {
@@ -78,17 +81,68 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
   ]
   ''';
 
+  // 计算经纬度偏移
+  LatLng _calculateOffset(LatLng position, double distanceMeters, String direction) {
+    // 地球半径（米）
+    const double earthRadius = 6371000;
+    
+    // 将距离转换为弧度
+    double distanceRadians = distanceMeters / earthRadius;
+    
+    // 当前位置的经纬度（弧度）
+    double latRad = position.latitude * (pi / 180);
+    double lngRad = position.longitude * (pi / 180);
+    
+    double newLatRad, newLngRad;
+    
+    switch (direction) {
+      case 'north':
+        newLatRad = latRad + distanceRadians;
+        newLngRad = lngRad;
+        break;
+      case 'south':
+        newLatRad = latRad - distanceRadians;
+        newLngRad = lngRad;
+        break;
+      case 'east':
+        newLatRad = latRad;
+        newLngRad = lngRad + distanceRadians / cos(latRad);
+        break;
+      case 'west':
+        newLatRad = latRad;
+        newLngRad = lngRad - distanceRadians / cos(latRad);
+        break;
+      default:
+        return position;
+    }
+    
+    // 转换回角度
+    return LatLng(
+      newLatRad * (180 / pi),
+      newLngRad * (180 / pi),
+    );
+  }
+
+  // 移动位置
+  void _movePosition(String direction) {
+    setState(() {
+      _currentPosition = _calculateOffset(_currentPosition, 2.0, direction);
+      _addMarker(_currentPosition);
+      mapController.animateCamera(
+        CameraUpdate.newLatLng(_currentPosition),
+      );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _placesService = GoogleMapsPlaces(apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '');
- 
   }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
-    _addMarker(_center);
-    // 只在遮罩模式下应用自定义样式
+    _addMarker(_currentPosition);
     if (_isFamiliarityMode) {
       controller.setMapStyle(_mapStyle);
     }
@@ -142,7 +196,6 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
 
   @override
   void dispose() {
- 
     mapController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -164,7 +217,6 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
             zoomControlsEnabled: false,
             mapType: MapType.normal,
             markers: _markers,
-           
           ),
           // 添加熟悉度遮罩层
           if (_isFamiliarityMode)
@@ -179,31 +231,77 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
             top: 60,
             left: 15,
             right: 15,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(26),
-                    blurRadius: 10,
-                    spreadRadius: 1,
+            child: Row(
+              children: [
+                if (_isFamiliarityMode)
+                  Container(
+                    width: 65,
+                    height: 65,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        // 内层发光效果
+                        BoxShadow(
+                          color: Colors.white.withAlpha(204),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                        // 中层发光效果
+                        BoxShadow(
+                          color: Colors.white.withAlpha(128),
+                          blurRadius: 8,
+                          spreadRadius: 0,
+                        ),
+                        // 外层阴影
+                        BoxShadow(
+                          color: Colors.black.withAlpha(26),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${_familiarityPercentage.toInt()}%',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: '搜索地点...',
-                  border: InputBorder.none,
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => _searchPlaces(_searchController.text),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(26),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: '搜索地点...',
+                        border: InputBorder.none,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.search),
+                          onPressed: () => _searchPlaces(_searchController.text),
+                        ),
+                      ),
+                      onSubmitted: _searchPlaces,
+                    ),
                   ),
                 ),
-                onSubmitted: _searchPlaces,
-              ),
+              ],
             ),
           ),
           // 添加熟悉度切换按钮
@@ -288,7 +386,49 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
               ),
             ),
           ),
-         
+          // 添加移动控制器
+          Positioned(
+            left: 20,
+            bottom: 120,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(26),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_up),
+                    onPressed: () => _movePosition('north'),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.keyboard_arrow_left),
+                        onPressed: () => _movePosition('west'),
+                      ),
+                      const SizedBox(width: 40),
+                      IconButton(
+                        icon: const Icon(Icons.keyboard_arrow_right),
+                        onPressed: () => _movePosition('east'),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_down),
+                    onPressed: () => _movePosition('south'),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
