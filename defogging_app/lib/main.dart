@@ -4,10 +4,67 @@ import 'package:defogging_app/pages/google_map_page.dart';
 import 'package:defogging_app/pages/analytics_page.dart';
 import 'package:defogging_app/pages/settings_page.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:location/location.dart';
+import 'dart:io' show Platform;
+import 'database/database_helper.dart';
 
 void main() async {
-  await dotenv.load(fileName: ".env");
-  runApp(const MyApp());
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    print('Starting application initialization...');
+    
+    // 初始化数据库
+    final dbHelper = DatabaseHelper();
+    print('Initializing database...');
+    await dbHelper.initializeDatabase();
+    
+    print('Loading environment variables...');
+    await dotenv.load(fileName: ".env");
+    
+    print('Requesting location permissions...');
+    await _requestLocationPermission();
+    
+    print('Application initialization completed successfully');
+    runApp(const MyApp());
+  } catch (e) {
+    print('Error during application initialization: $e');
+    // 在生产环境中，你可能想要显示一个用户友好的错误界面
+    rethrow;
+  }
+}
+
+Future<void> _requestLocationPermission() async {
+  Location location = Location();
+  
+  // 检查位置服务是否启用
+  bool serviceEnabled = await location.serviceEnabled();
+  if (!serviceEnabled) {
+    serviceEnabled = await location.requestService();
+    if (!serviceEnabled) {
+      return;
+    }
+  }
+
+  // 请求位置权限
+  PermissionStatus permissionStatus = await location.hasPermission();
+  if (permissionStatus == PermissionStatus.denied) {
+    permissionStatus = await location.requestPermission();
+    if (permissionStatus != PermissionStatus.granted) {
+      return;
+    }
+  }
+
+  // 如果已获得位置权限，尝试启用后台模式
+  if (permissionStatus == PermissionStatus.granted) {
+    try {
+      await location.enableBackgroundMode(enable: true);
+    } catch (e) {
+      // 如果启用后台模式失败，可能是因为没有后台权限
+      // 这是正常的，我们会在用户使用时再次尝试
+      print('后台位置权限未获得: $e');
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {

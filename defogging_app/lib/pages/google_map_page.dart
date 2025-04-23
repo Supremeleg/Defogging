@@ -4,6 +4,8 @@ import 'package:flutter_google_maps_webservices/places.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'dart:math';
+import '../services/location_service.dart';
+import '../database/location_model.dart';
 
 class GoogleMapPage extends StatefulWidget {
   const GoogleMapPage({super.key});
@@ -13,12 +15,14 @@ class GoogleMapPage extends StatefulWidget {
 }
 
 class _GoogleMapPageState extends State<GoogleMapPage> {
-  late GoogleMapController mapController;
+  GoogleMapController? _mapController;
   final LatLng _center = const LatLng(51.5074, -0.1278); // 伦敦坐标
-  final Set<Marker> _markers = {};
+  Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   late final GoogleMapsPlaces _placesService;
   LatLng _currentPosition = const LatLng(51.5074, -0.1278); // 当前位置
+  final LocationService _locationService = LocationService();
+  bool _isTracking = false;
 
   // 添加熟悉度状态
   bool _isFamiliarityMode = true; // 默认开启熟悉度显示模式
@@ -128,7 +132,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
     setState(() {
       _currentPosition = _calculateOffset(_currentPosition, 2.0, direction);
       _addMarker(_currentPosition);
-      mapController.animateCamera(
+      _mapController?.animateCamera(
         CameraUpdate.newLatLng(_currentPosition),
       );
     });
@@ -138,10 +142,27 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
   void initState() {
     super.initState();
     _placesService = GoogleMapsPlaces(apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '');
+    _loadLocations();
+  }
+
+  Future<void> _loadLocations() async {
+    final locations = await _locationService.getAllLocations();
+    setState(() {
+      _markers = locations.map((location) {
+        return Marker(
+          markerId: MarkerId(location.id.toString()),
+          position: LatLng(location.latitude, location.longitude),
+          infoWindow: InfoWindow(
+            title: '访问次数: ${location.visitCount}',
+            snippet: '最后访问: ${location.timestamp.toString()}',
+          ),
+        );
+      }).toSet();
+    });
   }
 
   void _onMapCreated(GoogleMapController controller) {
-    mapController = controller;
+    _mapController = controller;
     _addMarker(_currentPosition);
     if (_isFamiliarityMode) {
       controller.setMapStyle(_mapStyle);
@@ -183,7 +204,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
           _addMarker(newPosition);
         });
 
-        mapController.animateCamera(
+        _mapController?.animateCamera(
           CameraUpdate.newLatLngZoom(newPosition, 15),
         );
       }
@@ -194,9 +215,20 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
     }
   }
 
+  void _toggleTracking() async {
+    if (_isTracking) {
+      await _locationService.stopLocationTracking();
+    } else {
+      await _locationService.startLocationTracking();
+    }
+    setState(() {
+      _isTracking = !_isTracking;
+    });
+  }
+
   @override
   void dispose() {
-    mapController.dispose();
+    _mapController?.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -332,22 +364,37 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
                     ),
                 ],
               ),
-              child: IconButton(
-                icon: Icon(
-                  _isFamiliarityMode ? Icons.visibility : Icons.visibility_off,
-                  color: _isFamiliarityMode ? Colors.black : Colors.grey,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _isFamiliarityMode = !_isFamiliarityMode;
-                    // 切换遮罩模式时更新地图样式
-                    if (_isFamiliarityMode) {
-                      mapController.setMapStyle(_mapStyle);
-                    } else {
-                      mapController.setMapStyle(null); // 恢复默认样式
-                    }
-                  });
-                },
+              child: Column(
+                children: [
+                  // 位置跟踪开关
+                  IconButton(
+                    icon: Icon(
+                      _isTracking ? Icons.location_on : Icons.location_off,
+                      color: _isTracking ? Colors.blue : Colors.grey,
+                    ),
+                    onPressed: _toggleTracking,
+                    tooltip: _isTracking ? '停止位置跟踪' : '开始位置跟踪',
+                  ),
+                  // 熟悉度显示开关
+                  IconButton(
+                    icon: Icon(
+                      _isFamiliarityMode ? Icons.visibility : Icons.visibility_off,
+                      color: _isFamiliarityMode ? Colors.black : Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isFamiliarityMode = !_isFamiliarityMode;
+                        // 切换遮罩模式时更新地图样式
+                        if (_isFamiliarityMode) {
+                          _mapController?.setMapStyle(_mapStyle);
+                        } else {
+                          _mapController?.setMapStyle(null); // 恢复默认样式
+                        }
+                      });
+                    },
+                    tooltip: _isFamiliarityMode ? '隐藏熟悉度' : '显示熟悉度',
+                  ),
+                ],
               ),
             ),
           ),
@@ -373,7 +420,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> {
                   color: Colors.black,
                 ),
                 onPressed: () async {
-                  final GoogleMapController controller = mapController;
+                  final GoogleMapController controller = _mapController!;
                   controller.animateCamera(
                     CameraUpdate.newCameraPosition(
                       CameraPosition(
