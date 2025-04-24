@@ -14,11 +14,13 @@ class FogOverlayPainter extends CustomPainter {
   final List<Offset> points;
   final double radius;
   final double opacity;
+  final double zoomLevel; // 添加缩放级别参数
 
   FogOverlayPainter({
     required this.points,
-    this.radius = 20.0,
-    this.opacity = 0.7,
+    required this.radius,
+    required this.opacity,
+    required this.zoomLevel,
   });
 
   @override
@@ -40,9 +42,12 @@ class FogOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..blendMode = BlendMode.clear;
 
+    // 计算实际擦除半径（根据缩放级别调整）
+    final actualRadius = radius * pow(2, zoomLevel - 18); // 18是基准缩放级别
+
     // 一次性绘制所有圆形区域
     for (var point in points) {
-      canvas.drawCircle(point, radius, clearPaint);
+      canvas.drawCircle(point, actualRadius, clearPaint);
     }
     
     // 恢复画布状态
@@ -53,7 +58,8 @@ class FogOverlayPainter extends CustomPainter {
   bool shouldRepaint(FogOverlayPainter oldDelegate) {
     return oldDelegate.points != points ||
         oldDelegate.radius != radius ||
-        oldDelegate.opacity != opacity;
+        oldDelegate.opacity != opacity ||
+        oldDelegate.zoomLevel != zoomLevel;
   }
 }
 
@@ -651,6 +657,8 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     super.dispose();
   }
 
+  double _currentZoom = 18.0; // 添加当前缩放级别状态
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -672,19 +680,24 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
               initialCameraPosition: CameraPosition(
                 target: _center,
                 zoom: 18.0,
+                tilt: 0, // 禁用3D旋转
               ),
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               mapType: MapType.normal,
               markers: _markers,
-              circles: _showTrackingPoints ? _circles : {}, // 根据状态显示或隐藏白点
-              onCameraMove: (_) async {
+              circles: _showTrackingPoints ? _circles : {},
+              onCameraMove: (CameraPosition position) async {
                 if (_mapController != null && mounted) {
                   _visibleRegion = await _mapController!.getVisibleRegion();
-                  setState(() {}); // 触发重绘以更新遮罩层
+                  setState(() {
+                    _currentZoom = position.zoom; // 更新当前缩放级别
+                  });
                 }
               },
+              tiltGesturesEnabled: false, // 禁用倾斜手势
+              rotateGesturesEnabled: false, // 禁用旋转手势
             ),
             if (_isFamiliarityMode)
               Positioned.fill(
@@ -692,8 +705,9 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                   child: CustomPaint(
                     painter: FogOverlayPainter(
                       points: screenPoints,
-                      radius: _eraserRadius, // 使用较大的擦除半径
+                      radius: _eraserRadius,
                       opacity: _overlayOpacity,
+                      zoomLevel: _currentZoom, // 传递当前缩放级别
                     ),
                     size: _mapSize ?? Size.zero,
                   ),
