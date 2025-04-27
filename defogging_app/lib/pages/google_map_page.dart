@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 import '../services/location_service.dart';
 import '../database/location_model.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // 添加自定义遮罩层绘制器
 class FogOverlayPainter extends CustomPainter {
@@ -195,7 +196,7 @@ class GoogleMapPage extends StatefulWidget {
   State<GoogleMapPage> createState() => _GoogleMapPageState();
 }
 
-class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveClientMixin {
+class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
   GoogleMapController? _mapController;
   LatLng _center = const LatLng(51.5074, -0.1278); // 初始位置，后续会被实际位置更新
   Set<Marker> _markers = {};
@@ -208,14 +209,15 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   // 添加熟悉度状态
   bool _isFamiliarityMode = true; // 默认开启熟悉度显示模式
   double _familiarityPercentage = 75.0; // 默认熟悉度为75%
-  
   static const double _eraserRadius = 20.0; // 恢复正常擦除半径
-  // 存储地图坐标点而不是屏幕坐标点
   List<LatLng> _clearPoints = [];
   Size? _mapSize;
-
-  // 添加地图边界
   LatLngBounds? _visibleRegion;
+  double _currentZoom = 18.0; // 添加当前缩放级别状态
+
+  late AnimationController _rippleController;
+
+  bool _showSearchBar = false;
 
   // 获取遮罩不透明度
   double get _overlayOpacity {
@@ -454,16 +456,15 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     super.initState();
     _placesService = GoogleMapsPlaces(apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '');
     _loadLocations();
-    
-    // 设置位置更新回调
     _locationService.onLocationUpdated = _onLocationUpdated;
-    
-    // 默认开启位置跟踪
     _isTracking = true;
     _locationService.startLocationTracking();
-
-    // 获取初始位置
     _getCurrentLocation();
+    // 动态涟漪动画控制器
+    _rippleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -592,10 +593,9 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   void dispose() {
     _mapController?.dispose();
     _searchController.dispose();
+    _rippleController.dispose();
     super.dispose();
   }
-
-  double _currentZoom = 18.0; // 添加当前缩放级别状态
 
   // 添加获取当前位置的方法
   Future<void> _getCurrentLocation() async {
@@ -635,28 +635,29 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
 
         return Stack(
           children: [
+            // 1. 地图和底层内容
             GoogleMap(
               onMapCreated: _onMapCreated,
               initialCameraPosition: CameraPosition(
                 target: _center,
                 zoom: 18.0,
-                tilt: 0, // 禁用3D旋转
+                tilt: 0,
               ),
               myLocationEnabled: false,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               mapType: MapType.normal,
-              markers: {}, // 不显示Google Maps自带的Marker
+              markers: {},
               onCameraMove: (CameraPosition position) async {
                 if (_mapController != null && mounted) {
                   _visibleRegion = await _mapController!.getVisibleRegion();
                   setState(() {
-                    _currentZoom = position.zoom; // 更新当前缩放级别
+                    _currentZoom = position.zoom;
                   });
                 }
               },
-              tiltGesturesEnabled: false, // 禁用倾斜手势
-              rotateGesturesEnabled: false, // 禁用旋转手势
+              tiltGesturesEnabled: false,
+              rotateGesturesEnabled: false,
             ),
             if (_isFamiliarityMode)
               Positioned.fill(
@@ -666,111 +667,211 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                       points: screenPoints,
                       radius: _eraserRadius,
                       opacity: _overlayOpacity,
-                      zoomLevel: _currentZoom, // 传递当前缩放级别
+                      zoomLevel: _currentZoom,
                     ),
                     size: _mapSize ?? Size.zero,
                   ),
                 ),
               ),
-            // 自定义红色标记和发光白色圆点
-            if (_mapSize != null && _visibleRegion != null)
-              ...[
-                // 红色标记（character1.png）
-                if (_latLngToScreenPoint(_currentPosition) != null)
-                  Positioned(
-                    left: _latLngToScreenPoint(_currentPosition)!.dx - 24,
-                    top: _latLngToScreenPoint(_currentPosition)!.dy - 48,
-                    child: Image.asset(
-                      'assets/character1.png',
-                      width: 48,
-                      height: 48,
-                    ),
-                  ),
-                // 蓝色发光圆点（真实位置）
-                if (_latLngToScreenPoint(_center) != null)
-                  Positioned(
-                    left: _latLngToScreenPoint(_center)!.dx - 16,
-                    top: _latLngToScreenPoint(_center)!.dy - 16,
-                    child: _GlowingWhiteDot(),
-                  ),
-              ],
-            Positioned(
-              top: 60,
-              left: 15,
-              right: 15,
-              child: Row(
-                children: [
-                  if (_isFamiliarityMode)
-                    Container(
-                      width: 65,
-                      height: 65,
-                      margin: const EdgeInsets.only(right: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          // 内层发光效果
-                          BoxShadow(
-                            color: Colors.white.withAlpha(204),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                          // 中层发光效果
-                          BoxShadow(
-                            color: Colors.white.withAlpha(128),
-                            blurRadius: 8,
-                            spreadRadius: 0,
-                          ),
-                          // 外层阴影
-                          BoxShadow(
-                            color: Colors.black.withAlpha(26),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${_familiarityPercentage.toInt()}%',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+            // SVG/动画/网格/熟悉度内容
+            if (_isFamiliarityMode)
+              Positioned(
+                top: 60,
+                left: 15,
+                right: 15,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Stack(
+                      children: [
+                        DotsGridBackground(width: constraints.maxWidth, height: 140, dotRadius: 1.5, spacing: 12),
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Container(
+                                  width: 140,
+                                  height: 140,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      // 左上角文件名
+                                      Positioned(
+                                        left: 8,
+                                        top: 8,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(0.18),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            _getSvgName(svgAsset),
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      // 动态涟漪、SVG、数值等
+                                      AnimatedBuilder(
+                                        animation: _rippleController,
+                                        builder: (context, child) {
+                                          double scale = 1.0 + 0.18 * _rippleController.value;
+                                          double opacity = 0.18 + 0.12 * (1 - _rippleController.value);
+                                          return Transform.scale(
+                                            scale: scale,
+                                            child: Opacity(
+                                              opacity: opacity,
+                                              child: SvgPicture.asset(
+                                                svgAsset,
+                                                width: 140,
+                                                height: 140,
+                                                color: Colors.blueAccent,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      SvgPicture.asset(
+                                        svgAsset,
+                                        width: 128,
+                                        height: 128,
+                                        color: Colors.blueAccent.withOpacity(0.18),
+                                      ),
+                                      SvgPicture.asset(
+                                        svgAsset,
+                                        width: 120,
+                                        height: 120,
+                                        color: Colors.purpleAccent.withOpacity(0.10),
+                                      ),
+                                      SvgPicture.asset(
+                                        svgAsset,
+                                        width: 112,
+                                        height: 112,
+                                        color: Colors.blueAccent.withOpacity(0.22),
+                                      ),
+                                      ImageFiltered(
+                                        imageFilter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                        child: SvgPicture.asset(
+                                          svgAsset,
+                                          width: 104,
+                                          height: 104,
+                                          color: Colors.white.withOpacity(0.7),
+                                        ),
+                                      ),
+                                      SvgPicture.asset(
+                                        svgAsset,
+                                        width: 104,
+                                        height: 104,
+                                      ),
+                                      Text(
+                                        '${_familiarityPercentage.toInt()}%',
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Container(), // 右侧内容保留原结构
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(26),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: '搜索地点...',
-                          border: InputBorder.none,
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.search),
-                            onPressed: () => _searchPlaces(_searchController.text),
-                          ),
-                        ),
-                        onSubmitted: _searchPlaces,
-                      ),
-                    ),
-                  ),
-                ],
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
+            // 搜索按钮和弹出搜索框始终在最上层
+            if (_isFamiliarityMode)
+              Positioned(
+                top: 60,
+                right: 15,
+                child: SizedBox(
+                  width: 260,
+                  height: 48,
+                  child: Stack(
+                    alignment: Alignment.centerRight,
+                    children: [
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        right: _showSearchBar ? 0 : -260,
+                        top: 0,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          width: 260,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(26),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText: '搜索地点…',
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                  onSubmitted: _searchPlaces,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () {
+                                  setState(() {
+                                    _showSearchBar = false;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (!_showSearchBar)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Material(
+                            color: Colors.blueAccent,
+                            shape: const CircleBorder(),
+                            elevation: 4,
+                            child: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: IconButton(
+                                icon: const Icon(Icons.search, color: Colors.white),
+                                onPressed: () {
+                                  setState(() {
+                                    _showSearchBar = true;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             // 添加熟悉度切换按钮
             Positioned(
               bottom: 180, // 定位按钮上方
@@ -902,4 +1003,62 @@ class _GlowingWhiteDot extends StatelessWidget {
       ),
     );
   }
+}
+
+String svgAsset = 'assets/London/GBHCK.svg';
+String _getSvgName(String path) {
+  final nameWithExt = path.split('/').last;
+  final name = nameWithExt.split('.').first;
+  return name;
+}
+
+class DotsGridBackground extends StatelessWidget {
+  final double width;
+  final double height;
+  final double dotRadius;
+  final double spacing;
+  final Color color;
+
+  const DotsGridBackground({
+    super.key,
+    required this.width,
+    required this.height,
+    this.dotRadius = 1.5,
+    this.spacing = 12,
+    this.color = const Color.fromRGBO(255, 255, 255, 0.12),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(width, height),
+      painter: _DotsGridPainter(dotRadius, spacing, color),
+    );
+  }
+}
+
+class _DotsGridPainter extends CustomPainter {
+  final double dotRadius;
+  final double spacing;
+  final Color color;
+
+  _DotsGridPainter(this.dotRadius, this.spacing, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxDist = center.distance;
+    for (double x = spacing / 2; x < size.width; x += spacing) {
+      for (double y = spacing / 2; y < size.height; y += spacing) {
+        final dist = (Offset(x, y) - center).distance;
+        final alpha = (1.0 - (dist / maxDist)).clamp(0.0, 1.0);
+        final paint = Paint()
+          ..color = color.withOpacity(alpha * color.opacity);
+        canvas.drawCircle(Offset(x, y), dotRadius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
