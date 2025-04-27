@@ -41,6 +41,8 @@ dependencies:
   flutter_google_maps_webservices: ^1.1.1
   sqflite: ^2.3.2
   path: ^1.8.3
+  firebase_core: ^3.13.0
+  cloud_firestore: ^5.6.6
 
 dev_dependencies:
   flutter_test:
@@ -97,3 +99,4 @@ flutter:
 
   assets:
     - .env
+    - assets/character1.png

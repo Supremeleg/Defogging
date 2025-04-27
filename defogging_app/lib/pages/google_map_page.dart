@@ -197,12 +197,11 @@ class GoogleMapPage extends StatefulWidget {
 
 class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveClientMixin {
   GoogleMapController? _mapController;
-  final LatLng _center = const LatLng(51.5074, -0.1278); // 伦敦坐标
-  Set<Circle> _circles = {};
+  LatLng _center = const LatLng(51.5074, -0.1278); // 初始位置，后续会被实际位置更新
   Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   late final GoogleMapsPlaces _placesService;
-  LatLng _currentPosition = const LatLng(51.5074, -0.1278); // 当前位置
+  LatLng _currentPosition = const LatLng(51.5074, -0.1278); // 当前位置，后续会被实际位置更新
   final LocationService _locationService = LocationService();
   bool _isTracking = false;
 
@@ -210,16 +209,13 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   bool _isFamiliarityMode = true; // 默认开启熟悉度显示模式
   double _familiarityPercentage = 75.0; // 默认熟悉度为75%
   
-  static const double _circleRadius = 5.0; // 白色标记点的半径
-  static const double _eraserRadius = 20.0; // 擦除区域的半径
+  static const double _eraserRadius = 20.0; // 恢复正常擦除半径
   // 存储地图坐标点而不是屏幕坐标点
   List<LatLng> _clearPoints = [];
   Size? _mapSize;
 
   // 添加地图边界
   LatLngBounds? _visibleRegion;
-
-  bool _showTrackingPoints = true; // 添加控制白点显示的状态
 
   // 获取遮罩不透明度
   double get _overlayOpacity {
@@ -355,22 +351,14 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       );
       
       if (_isTracking) {
-        if (_showTrackingPoints) { // 只在显示白点时添加Circle
-          _circles.add(
-            Circle(
-              circleId: CircleId(DateTime.now().toString()),
-              center: _currentPosition,
-              radius: _circleRadius,
-              fillColor: Colors.white.withOpacity(0.7),
-              strokeColor: Colors.white,
-              strokeWidth: 1,
-            ),
-          );
-        }
-        // 无论是否显示白点，都要记录清除点
         _clearPoints.add(_currentPosition);
       }
     });
+
+    // 保存虚拟点到本地数据库
+    if (_isTracking) {
+      await _locationService.saveVirtualLocation(_currentPosition);
+    }
 
     // 更新可见区域
     _visibleRegion = await _mapController!.getVisibleRegion();
@@ -382,7 +370,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   }
 
   // 添加斜向移动方法
-  void _movePositionDiagonal(String direction1, String direction2) {
+  void _movePositionDiagonal(String direction1, String direction2) async {
     // 计算斜向移动的位置
     final pos1 = _calculateOffset(_currentPosition, 1.4, direction1); // 减小单方向距离以保持斜向距离合适
     final pos2 = _calculateOffset(pos1, 1.4, direction2);
@@ -403,21 +391,14 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       );
       
       if (_isTracking) {
-        if (_showTrackingPoints) {
-          _circles.add(
-            Circle(
-              circleId: CircleId(DateTime.now().toString()),
-              center: _currentPosition,
-              radius: _circleRadius,
-              fillColor: Colors.white.withOpacity(0.7),
-              strokeColor: Colors.white,
-              strokeWidth: 1,
-            ),
-          );
-        }
         _clearPoints.add(_currentPosition);
       }
     });
+
+    // 保存虚拟点到本地数据库
+    if (_isTracking) {
+      await _locationService.saveVirtualLocation(_currentPosition);
+    }
 
     _mapController?.animateCamera(
       CameraUpdate.newLatLng(_currentPosition),
@@ -480,6 +461,9 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     // 默认开启位置跟踪
     _isTracking = true;
     _locationService.startLocationTracking();
+
+    // 获取初始位置
+    _getCurrentLocation();
   }
 
   @override
@@ -490,17 +474,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
 
   void _onLocationUpdated(LocationPoint location) {
     setState(() {
-      // 添加位置点圆圈
-      _circles.add(
-        Circle(
-          circleId: CircleId(DateTime.now().toString()),
-          center: LatLng(location.latitude, location.longitude),
-          radius: 5, // 5米半径
-          fillColor: Colors.white.withOpacity(0.7),
-          strokeColor: Colors.white,
-          strokeWidth: 1,
-        ),
-      );
+      _currentPosition = LatLng(location.latitude, location.longitude);
       
       // 更新或添加标记
       final markerId = MarkerId(location.id?.toString() ?? DateTime.now().toString());
@@ -508,13 +482,16 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       _markers.add(
         Marker(
           markerId: markerId,
-          position: LatLng(location.latitude, location.longitude),
+          position: _currentPosition,
           infoWindow: InfoWindow(
-            title: '访问次数: ${location.visitCount}',
-            snippet: '最后访问: ${location.timestamp.toString()}',
+            title: '当前位置',
+            snippet: '纬度: ${_currentPosition.latitude}, 经度: ${_currentPosition.longitude}',
           ),
         ),
       );
+      
+      // 记录清除点
+      _clearPoints.add(_currentPosition);
     });
   }
 
@@ -522,47 +499,19 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     try {
       final locations = await _locationService.getAllLocations();
       if (!mounted) return;
-      
       setState(() {
-        // 保留当前位置标记
-        final currentPositionMarker = _markers.where((m) => m.markerId == const MarkerId('current_position')).toList();
-        
-        // 清除现有标记和圆圈，但保留当前位置标记
-        _markers.clear();
-        _circles.clear();
-        
-        // 恢复当前位置标记
-        if (currentPositionMarker.isNotEmpty) {
-          _markers.add(currentPositionMarker.first);
-        }
-        
-        // 添加所有位置点
+        _clearPoints.clear();
         for (var location in locations) {
-          // 添加圆圈
-          _circles.add(
-            Circle(
-              circleId: CircleId(location.id.toString()),
-              center: LatLng(location.latitude, location.longitude),
-              radius: 5,
-              fillColor: Colors.white.withOpacity(0.7),
-              strokeColor: Colors.white,
-              strokeWidth: 1,
-            ),
-          );
-          
-          // 添加标记
-          _markers.add(
-            Marker(
-              markerId: MarkerId(location.id.toString()),
-              position: LatLng(location.latitude, location.longitude),
-              infoWindow: InfoWindow(
-                title: '访问次数: ${location.visitCount}',
-                snippet: '最后访问: ${location.timestamp.toString()}',
-              ),
-            ),
-          );
+          _clearPoints.add(LatLng(location.latitude, location.longitude));
         }
       });
+      // 自动跳转到历史点中心
+      if (_clearPoints.isNotEmpty && _mapController != null) {
+        double avgLat = _clearPoints.map((e) => e.latitude).reduce((a, b) => a + b) / _clearPoints.length;
+        double avgLng = _clearPoints.map((e) => e.longitude).reduce((a, b) => a + b) / _clearPoints.length;
+        _mapController!.animateCamera(CameraUpdate.newLatLng(LatLng(avgLat, avgLng)));
+      }
+      print('_clearPoints: \n$_clearPoints');
     } catch (e) {
       print('加载位置点时出错: $e');
     }
@@ -593,19 +542,8 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
         ),
       );
       
-      // 只在位置记录开启时添加白色圆点
-      if (_isTracking) {
-        _circles.add(
-          Circle(
-            circleId: CircleId(DateTime.now().toString()),
-            center: position,
-            radius: 5, // 5米半径
-            fillColor: Colors.white.withOpacity(0.7),
-            strokeColor: Colors.white,
-            strokeWidth: 1,
-          ),
-        );
-      }
+      // 记录清除点
+      _clearPoints.add(position);
     });
   }
 
@@ -659,6 +597,27 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
 
   double _currentZoom = 18.0; // 添加当前缩放级别状态
 
+  // 添加获取当前位置的方法
+  Future<void> _getCurrentLocation() async {
+    try {
+      final location = await _locationService.getCurrentLocation();
+      if (location != null) {
+        setState(() {
+          _currentPosition = LatLng(location.latitude, location.longitude);
+          _center = _currentPosition;
+          _addMarker(_currentPosition);
+        });
+        
+        // 移动地图到当前位置
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(_currentPosition, 18.0),
+        );
+      }
+    } catch (e) {
+      print('获取当前位置失败: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -669,9 +628,10 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
         // 转换所有清除点的坐标
         final screenPoints = _clearPoints
             .map((latLng) => _latLngToScreenPoint(latLng))
-            .where((point) => point != null)
+            .where((point) => point != null && point.dx > 0 && point.dy > 0 && _mapSize != null && point.dx < _mapSize!.width && point.dy < _mapSize!.height)
             .cast<Offset>()
             .toList();
+        print('screenPoints: $screenPoints');
 
         return Stack(
           children: [
@@ -682,12 +642,11 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 zoom: 18.0,
                 tilt: 0, // 禁用3D旋转
               ),
-              myLocationEnabled: true,
+              myLocationEnabled: false,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               mapType: MapType.normal,
-              markers: _markers,
-              circles: _showTrackingPoints ? _circles : {},
+              markers: {}, // 不显示Google Maps自带的Marker
               onCameraMove: (CameraPosition position) async {
                 if (_mapController != null && mounted) {
                   _visibleRegion = await _mapController!.getVisibleRegion();
@@ -713,6 +672,28 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                   ),
                 ),
               ),
+            // 自定义红色标记和发光白色圆点
+            if (_mapSize != null && _visibleRegion != null)
+              ...[
+                // 红色标记（character1.png）
+                if (_latLngToScreenPoint(_currentPosition) != null)
+                  Positioned(
+                    left: _latLngToScreenPoint(_currentPosition)!.dx - 24,
+                    top: _latLngToScreenPoint(_currentPosition)!.dy - 48,
+                    child: Image.asset(
+                      'assets/character1.png',
+                      width: 48,
+                      height: 48,
+                    ),
+                  ),
+                // 蓝色发光圆点（真实位置）
+                if (_latLngToScreenPoint(_center) != null)
+                  Positioned(
+                    left: _latLngToScreenPoint(_center)!.dx - 16,
+                    top: _latLngToScreenPoint(_center)!.dy - 16,
+                    child: _GlowingWhiteDot(),
+                  ),
+              ],
             Positioned(
               top: 60,
               left: 15,
@@ -873,17 +854,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                     Icons.my_location,
                     color: Colors.black,
                   ),
-                  onPressed: () async {
-                    final GoogleMapController controller = _mapController!;
-                    controller.animateCamera(
-                      CameraUpdate.newCameraPosition(
-                        CameraPosition(
-                          target: _center, // 这里后续需要改为实际的当前位置
-                          zoom: 15,
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: _getCurrentLocation,
                 ),
               ),
             ),
@@ -895,39 +866,40 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 onDirectionChanged: _onJoystickDirectionChanged,
               ),
             ),
-            // 添加白点显示控制按钮
-            Positioned(
-              left: 20,
-              bottom: 300, // 放在方向控制器上方
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(26),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    _showTrackingPoints ? Icons.circle : Icons.circle_outlined,
-                    color: _showTrackingPoints ? Colors.blue : Colors.grey,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _showTrackingPoints = !_showTrackingPoints;
-                    });
-                  },
-                  tooltip: _showTrackingPoints ? '隐藏轨迹点' : '显示轨迹点',
-                ),
-              ),
-            ),
           ],
         );
       },
+    );
+  }
+}
+
+// 修改发光白色圆点组件
+class _GlowingWhiteDot extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24, // 缩小整体尺寸
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.white.withOpacity(0.5), // 发光更弱
+            blurRadius: 8, // 扩散范围更小
+            spreadRadius: 3,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
     );
   }
 }

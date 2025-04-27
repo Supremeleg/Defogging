@@ -3,6 +3,8 @@ import '../database/database_helper.dart';
 import '../database/location_model.dart';
 import 'dart:math';
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class LocationService {
   final Location _location = Location();
@@ -15,6 +17,53 @@ class LocationService {
   
   // 添加位置更新回调
   Function(LocationPoint)? onLocationUpdated;
+  
+  // 上传位置到 Firestore
+  Future<void> uploadLocationToFirestore(LocationPoint location) async {
+    try {
+      await FirebaseFirestore.instance.collection('locations').add({
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+        'visitCount': location.visitCount,
+        'timestamp': location.timestamp.toIso8601String(),
+      });
+    } catch (e) {
+      print('上传位置到 Firestore 失败: $e');
+    }
+  }
+  
+  // 添加获取当前位置的方法
+  Future<LocationPoint?> getCurrentLocation() async {
+    try {
+      // 检查位置服务是否启用
+      bool serviceEnabled = await _location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await _location.requestService();
+        if (!serviceEnabled) return null;
+      }
+
+      // 检查位置权限
+      PermissionStatus permission = await _location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await _location.requestPermission();
+        if (permission != PermissionStatus.granted) return null;
+      }
+
+      // 获取当前位置
+      final locationData = await _location.getLocation();
+      if (locationData.latitude == null || locationData.longitude == null) return null;
+
+      return LocationPoint(
+        latitude: locationData.latitude!,
+        longitude: locationData.longitude!,
+        visitCount: 1,
+        timestamp: DateTime.now(),
+      );
+    } catch (e) {
+      print('获取当前位置失败: $e');
+      return null;
+    }
+  }
   
   // 计算两点之间的距离（米）
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -106,6 +155,7 @@ class LocationService {
               );
               await _dbHelper.updateLocation(nearestLocation);
               print('更新位置点访问次数: ${nearestLocation.visitCount}');
+              await uploadLocationToFirestore(nearestLocation);
               // 通知位置更新
               onLocationUpdated?.call(nearestLocation);
             } else {
@@ -118,6 +168,7 @@ class LocationService {
               );
               await _dbHelper.insertLocation(newLocation);
               print('新建位置点记录');
+              await uploadLocationToFirestore(newLocation);
               // 通知位置更新
               onLocationUpdated?.call(newLocation);
             }
@@ -172,5 +223,15 @@ class LocationService {
 
   bool isTracking() {
     return _isListening;
+  }
+
+  Future<void> saveVirtualLocation(LatLng latLng) async {
+    final location = LocationPoint(
+      latitude: latLng.latitude,
+      longitude: latLng.longitude,
+      visitCount: 1,
+      timestamp: DateTime.now(),
+    );
+    await _dbHelper.insertLocation(location);
   }
 } 
