@@ -62,39 +62,65 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ),
         ),
         child: SafeArea(
-          child: Column(
+          child: Stack(
             children: [
-              const SizedBox(height: 80),
-              _buildTabBar(),
-              const SizedBox(height: 16),
-              _buildSearchBar(),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: cards.length,
-                  itemBuilder: (context, index) {
-                    final card = cards[index];
-                    final isSelected = selectedCard == index;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          selectedCard = index;
-                        });
-                      },
-                      onDoubleTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => CardDetailPage(
-                              svgName: card.svgName,
-                              displayName: card.displayName,
-                            ),
-                          ),
+              Column(
+                children: [
+                  const SizedBox(height: 80),
+                  _buildTabBar(),
+                  const SizedBox(height: 16),
+                  _buildSearchBar(),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) {
+                        final card = cards[index];
+                        final isSelected = selectedCard == index;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              selectedCard = index;
+                            });
+                          },
+                          onDoubleTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => CardDetailPage(
+                                  svgName: card.svgName,
+                                  displayName: card.displayName,
+                                ),
+                              ),
+                            );
+                          },
+                          child: _buildCard(card, isSelected),
                         );
                       },
-                      child: _buildCard(card, isSelected),
-                    );
-                  },
+                    ),
+                  ),
+                ],
+              ),
+              // 渐变遮罩层
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Color.fromRGBO(0, 0, 0, 0.5), // 底部50%黑色
+                          Color.fromRGBO(0, 0, 0, 0.0), // 顶部透明
+                        ],
+                        stops: [0.0, 0.25], // 渐变到顶部25%处为全透明
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
