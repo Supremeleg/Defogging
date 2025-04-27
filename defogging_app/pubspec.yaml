@@ -31,6 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_dotenv: ^5.1.0
+  flutter_svg: ^2.1.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -100,3 +101,37 @@ flutter:
   assets:
     - .env
     - assets/character1.png
+    - assets/background.png
+    - assets/London/GBBDG.svg
+    - assets/London/GBBEN.svg
+    - assets/London/GBBEX.svg
+    - assets/London/GBBNE.svg
+    - assets/London/GBBRY.svg
+    - assets/London/GBCMD.svg
+    - assets/London/GBCRY.svg
+    - assets/London/GBEAL.svg
+    - assets/London/GBENF.svg
+    - assets/London/GBGRE.svg
+    - assets/London/GBHAV.svg
+    - assets/London/GBHCK.svg
+    - assets/London/GBHIL.svg
+    - assets/London/GBHMF.svg
+    - assets/London/GBHNS.svg
+    - assets/London/GBHRW.svg
+    - assets/London/GBHRY.svg
+    - assets/London/GBISL.svg
+    - assets/London/GBKEC.svg
+    - assets/London/GBKTT.svg
+    - assets/London/GBLBH.svg
+    - assets/London/GBLEW.svg
+    - assets/London/GBLND.svg
+    - assets/London/GBMRT.svg
+    - assets/London/GBNWM.svg
+    - assets/London/GBRDB.svg
+    - assets/London/GBRIC.svg
+    - assets/London/GBSTN.svg
+    - assets/London/GBSWK.svg
+    - assets/London/GBTWH.svg
+    - assets/London/GBWFT.svg
+    - assets/London/GBWND.svg
+    - assets/London/GBWSM.svg
