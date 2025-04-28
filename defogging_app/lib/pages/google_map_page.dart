@@ -9,6 +9,8 @@ import '../services/location_service.dart';
 import '../database/location_model.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_google_maps_webservices/geocoding.dart';
+import '../services/event_service.dart';
+import '../models/event_model.dart';
 
 // 添加自定义遮罩层绘制器
 class FogOverlayPainter extends CustomPainter {
@@ -29,11 +31,28 @@ class FogOverlayPainter extends CustomPainter {
     // 保存画布状态
     canvas.saveLayer(Offset.zero & size, Paint());
     
-    // 绘制黑色背景
+    // 创建由外向内的渐变
+    final gradient = RadialGradient(
+      center: Alignment.center,
+      radius: 1.0,
+      colors: [
+        Colors.black.withOpacity(0.0),
+        Colors.black.withOpacity(opacity * 0.2),
+        Colors.black.withOpacity(opacity * 0.4),
+        Colors.black.withOpacity(opacity * 0.6),
+        Colors.black.withOpacity(opacity * 0.8),
+        Colors.black.withOpacity(opacity),
+      ],
+      stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
+    );
+
+    // 绘制渐变背景
     canvas.drawRect(
       Offset.zero & size,
       Paint()
-        ..color = Colors.black.withOpacity(opacity)
+        ..shader = gradient.createShader(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+        )
         ..style = PaintingStyle.fill,
     );
     
@@ -49,7 +68,7 @@ class FogOverlayPainter extends CustomPainter {
     // 为每个点创建羽化效果
     for (var point in points) {
       // 创建径向渐变
-      final gradient = RadialGradient(
+      final pointGradient = RadialGradient(
         colors: [
           Colors.white.withOpacity(1.0),
           Colors.white.withOpacity(0.0),
@@ -59,7 +78,7 @@ class FogOverlayPainter extends CustomPainter {
 
       // 创建渐变画笔
       final gradientPaint = Paint()
-        ..shader = gradient.createShader(
+        ..shader = pointGradient.createShader(
           Rect.fromCircle(
             center: point,
             radius: actualRadius,
@@ -238,6 +257,10 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   double _currentZoom = 18.0;
   bool _isPlacingMode = false;
   bool _isSearchBarOpen = false;
+  final EventService _eventService = EventService();
+  List<MapEvent> _discoveredEvents = [];
+  bool _showEventDialog = false;
+  MapEvent? _currentEvent;
 
   // 获取遮罩不透明度
   double get _overlayOpacity {
@@ -260,15 +283,67 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     return Offset(x, y);
   }
 
-  // 添加地图样式字符串
-  final String _mapStyle = '''
-  [
+  // 添加地图样式列表
+  final Map<String, String> _mapStyles = {
+    '默认': '',
+    '深邃紫': '''
+    [
+      {
+        "featureType": "poi",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.park",
+        "elementType": "labels.text",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1a1a2f"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#8e8eb3"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.stroke",
+        "stylers": [
+          {
+            "color": "#1a1a2f"
+          }
+        ]
+      },
     {
       "featureType": "landscape",
       "elementType": "geometry",
       "stylers": [
         {
-          "color": "#e0e0e0"
+            "color": "#252538"
         }
       ]
     },
@@ -277,7 +352,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       "elementType": "geometry",
       "stylers": [
         {
-          "color": "#f5f5f5"
+            "color": "#2d2d44"
         }
       ]
     },
@@ -286,7 +361,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       "elementType": "labels.text.fill",
       "stylers": [
         {
-          "color": "#757575"
+            "color": "#9d9dc6"
         }
       ]
     },
@@ -295,7 +370,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       "elementType": "geometry",
       "stylers": [
         {
-          "color": "#dadada"
+            "color": "#3d3d5c"
         }
       ]
     },
@@ -304,12 +379,972 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       "elementType": "geometry",
       "stylers": [
         {
-          "color": "#c9c9c9"
-        }
-      ]
+            "color": "#151525"
+          }
+        ]
+      },
+      {
+        "featureType": "poi",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2a2a40"
+          }
+        ]
+      },
+      {
+        "featureType": "transit",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2d2d44"
+          }
+        ]
+      }
+    ]
+    ''',
+    '极简黑白': '''
+    [
+      {
+        "featureType": "poi",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.park",
+        "elementType": "labels.text",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "all",
+        "stylers": [
+          {
+            "hue": "#ffffff"
+          },
+          {
+            "saturation": -100
+          },
+          {
+            "lightness": 100
+          },
+          {
+            "visibility": "on"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "all",
+        "stylers": [
+          {
+            "hue": "#ffffff"
+          },
+          {
+            "saturation": -100
+          },
+          {
+            "lightness": 100
+          },
+          {
+            "visibility": "on"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "hue": "#000000"
+          },
+          {
+            "saturation": -100
+          },
+          {
+            "lightness": -100
+          },
+          {
+            "visibility": "simplified"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi",
+        "elementType": "all",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "administrative",
+        "elementType": "all",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "transit",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "hue": "#000000"
+          },
+          {
+            "lightness": -100
+          },
+          {
+            "visibility": "on"
+          }
+        ]
+      }
+    ]
+    ''',
+    '午夜蓝': '''
+    [
+      {
+        "featureType": "poi",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.park",
+        "elementType": "labels.text",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#334155"
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#475569"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#0c4a6e"
+          }
+        ]
+      },
+      {
+        "featureType": "poi",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1e293b"
+          }
+        ]
+      },
+      {
+        "featureType": "transit",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#334155"
+          }
+        ]
+      }
+    ]
+    ''',
+    '复古棕': '''
+    [
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2b1d0e"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#d5b088"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#3c2915"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#4a3321"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1a1105"
+          }
+        ]
+      }
+    ]
+    ''',
+    '极光': '''
+    [
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1c2754"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#8ec3b9"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2a3d66"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#38b6ff"
+          },
+          {
+            "lightness": 20
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#4dc9ff"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#0f3057"
+          }
+        ]
+      },
+      {
+        "featureType": "poi",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2d4b73"
+          }
+        ]
+      },
+      {
+        "featureType": "transit",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2a3d66"
+          }
+        ]
+      }
+    ]
+    ''',
+    '日落': '''
+    [
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#ff7b54"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#ffb26b"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#ffd56b"
+          },
+          {
+            "lightness": -10
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#ff7b54"
+          },
+          {
+            "lightness": 20
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#ff6b6b"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#4f9da6"
+          }
+        ]
+      },
+      {
+        "featureType": "poi",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#ffb26b"
+          },
+          {
+            "lightness": -15
+          }
+        ]
+      }
+    ]
+    ''',
+    '梦幻': '''
+    [
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#c9d6ff"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#9ba5d3"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#e2e2ff"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#b8c6db"
+          },
+          {
+            "lightness": 20
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#a1c4fd"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#8ec5fc"
+          }
+        ]
+      },
+      {
+        "featureType": "poi",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#d4d4ff"
+          }
+        ]
+      },
+      {
+        "featureType": "transit",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#c2e9fb"
+          }
+        ]
+      }
+    ]
+    ''',
+    '圣诞': '''
+    [
+      {
+        "featureType": "poi",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.park",
+        "elementType": "labels.text",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1a2c1a"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#8ec6ad"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1a2c1a"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2d4d2d"
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#3d6d3d"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#0d1c0d"
+          }
+        ]
+      }
+    ]
+    ''',
+    '春节': '''
+    [
+      {
+        "featureType": "poi",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.park",
+        "elementType": "labels.text",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2c1a1a"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#c68e8e"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2c1a1a"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#4d2d2d"
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#6d3d3d"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1c0d0d"
+          }
+        ]
+      }
+    ]
+    ''',
+    '万圣节': '''
+    [
+      {
+        "featureType": "poi",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.park",
+        "elementType": "labels.text",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1a1a1a"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#ff6b6b"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1a1a1a"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2d2d2d"
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#3d3d3d"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#0d0d0d"
+          }
+        ]
+      }
+    ]
+    ''',
+    '中秋': '''
+    [
+      {
+        "featureType": "poi",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.park",
+        "elementType": "labels.text",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1a1a2c"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#8e8ec6"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1a1a2c"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2d2d4d"
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#3d3d6d"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#0d0d1c"
+          }
+        ]
+      }
+    ]
+    ''',
+    '情人节': '''
+    [
+      {
+        "featureType": "poi",
+        "elementType": "labels",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.business",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "featureType": "poi.park",
+        "elementType": "labels.text",
+        "stylers": [
+          {
+            "visibility": "off"
+          }
+        ]
+      },
+      {
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2c1a2c"
+          }
+        ]
+      },
+      {
+        "elementType": "labels.text.fill",
+        "stylers": [
+          {
+            "color": "#ffb6c1"
+          }
+        ]
+      },
+      {
+        "featureType": "landscape",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#2c1a2c"
+          }
+        ]
+      },
+      {
+        "featureType": "road",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#4d2d4d"
+          }
+        ]
+      },
+      {
+        "featureType": "road.highway",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#6d3d6d"
+          }
+        ]
+      },
+      {
+        "featureType": "water",
+        "elementType": "geometry",
+        "stylers": [
+          {
+            "color": "#1c0d1c"
+          }
+        ]
+      }
+    ]
+    '''
+  };
+
+  // 添加场景推荐映射
+  final Map<String, String> _sceneRecommendations = {
+    '白天探索': '极简黑白',
+    '夜间探索': '深邃紫',
+    '黄昏探索': '日落',
+    '雨天探索': '午夜蓝',
+    '怀旧探索': '复古棕',
+    '梦境探索': '梦幻',
+    '极地探索': '极光',
+    '圣诞探索': '圣诞',
+    '春节探索': '春节',
+    '万圣探索': '万圣节',
+    '中秋探索': '中秋',
+    '情人节探索': '情人节'
+  };
+
+  String _currentMapStyle = ''; // 初始化为空字符串
+
+  // 获取场景推荐
+  String _getSceneRecommendation() {
+    final hour = DateTime.now().hour;
+    final now = DateTime.now();
+    final month = now.month;
+    final day = now.day;
+    
+    // 检查节日
+    if (month == 12 && day >= 20 && day <= 26) {
+      return _sceneRecommendations['圣诞探索']!;
+    } else if (month == 1 && day >= 20 && day <= 26) {
+      return _sceneRecommendations['春节探索']!;
+    } else if (month == 10 && day >= 28 && day <= 31) {
+      return _sceneRecommendations['万圣探索']!;
+    } else if (month == 9 && day >= 15 && day <= 17) {
+      return _sceneRecommendations['中秋探索']!;
+    } else if (month == 2 && day >= 12 && day <= 14) {
+      return _sceneRecommendations['情人节探索']!;
     }
-  ]
-  ''';
+    
+    // 根据时间选择日常样式
+    if (hour >= 19 || hour < 6) {
+      return _sceneRecommendations['夜间探索']!;
+    } else if (hour >= 16 && hour < 19) {
+      return _sceneRecommendations['黄昏探索']!;
+    } else {
+      return _sceneRecommendations['白天探索']!;
+    }
+  }
+
+  // 切换地图样式
+  void _changeMapStyle(String styleName) {
+    setState(() {
+      _currentMapStyle = styleName;
+      if (_mapController != null) {
+        _mapController!.setMapStyle(_mapStyles[styleName]);
+      }
+    });
+  }
 
   // 计算经纬度偏移
   LatLng _calculateOffset(LatLng position, double distanceMeters, String direction) {
@@ -471,6 +1506,12 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
 
     // 获取初始位置
     _getCurrentLocation();
+
+    // 根据场景自动选择样式
+    _currentMapStyle = _getSceneRecommendation();
+
+    // 初始化事件系统
+    _initEventSystem();
   }
 
   @override
@@ -479,6 +1520,60 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     _loadLocations(); // 在依赖变化时重新加载
   }
 
+  // 初始化事件系统
+  Future<void> _initEventSystem() async {
+    await _eventService.loadEvents();
+    _eventService.addOnEventDiscoveredListener(_onEventDiscovered);
+    
+    // 如果当前可见区域有事件，生成新事件
+    if (_visibleRegion != null) {
+      await _eventService.generateEventsInArea(_visibleRegion!, 5);
+    }
+  }
+
+  // 事件发现回调
+  void _onEventDiscovered(MapEvent event) {
+    setState(() {
+      _currentEvent = event;
+      _showEventDialog = true;
+      _discoveredEvents.add(event);
+    });
+  }
+
+  // 显示事件对话框
+  void _showEventDetails(MapEvent event) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(event.title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(event.description),
+            if (event.reward != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                event.reward!,
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 修改位置更新回调
   void _onLocationUpdated(LocationPoint location) {
     setState(() {
       _currentPosition = LatLng(location.latitude, location.longitude);
@@ -496,6 +1591,9 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       );
       _clearPoints.add(_currentPosition);
     });
+
+    // 检查是否发现新事件
+    _eventService.checkForEvents(_currentPosition);
   }
 
   Future<void> _loadLocations() async {
@@ -524,7 +1622,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     _mapController = controller;
     _addMarker(_currentPosition);
     if (_isFamiliarityMode) {
-      controller.setMapStyle(_mapStyle);
+      controller.setMapStyle(_mapStyles[_currentMapStyle]);
     }
     
     // 获取初始可见区域
@@ -595,6 +1693,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   void dispose() {
     _mapController?.dispose();
     _searchController.dispose();
+    _eventService.removeOnEventDiscoveredListener(_onEventDiscovered);
     super.dispose();
   }
 
@@ -707,11 +1806,15 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                     child: _GlowingWhiteDot(),
                   ),
               ],
-            // 顶部搜索栏和按钮
+            // 修改顶部搜索栏部分，添加样式选择按钮
             Positioned(
               top: 60,
               right: 15,
-              child: AnimatedContainer(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // 搜索栏
+                  AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.ease,
                 width: _isSearchBarOpen ? 280 : 56,
@@ -729,7 +1832,6 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 ),
                 child: Row(
                   children: [
-                    // 展开时显示输入框
                     if (_isSearchBarOpen)
                       Expanded(
                         child: Padding(
@@ -746,13 +1848,11 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                           ),
                         ),
                       ),
-                    // 搜索按钮
                     IconButton(
                       icon: const Icon(Icons.search, color: Colors.white),
                       onPressed: () {
                         setState(() {
                           if (_isSearchBarOpen) {
-                            // 已展开时点击，执行搜索
                             _searchPlaces(_searchController.text);
                           }
                           _isSearchBarOpen = !_isSearchBarOpen;
@@ -762,6 +1862,46 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                     ),
                   ],
                 ),
+                  ),
+                  // 样式选择按钮
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(26),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: PopupMenuButton<String>(
+                      icon: const Icon(Icons.palette, color: Colors.white),
+                      tooltip: '选择地图样式',
+                      onSelected: _changeMapStyle,
+                      itemBuilder: (BuildContext context) {
+                        return _mapStyles.keys.map((String styleName) {
+                          return PopupMenuItem<String>(
+                            value: styleName,
+                            child: Row(
+                              children: [
+                                if (_currentMapStyle == styleName)
+                                  const Icon(Icons.check, size: 18),
+                                if (_currentMapStyle == styleName)
+                                  const SizedBox(width: 8),
+                                Text(styleName),
+                              ],
+                            ),
+                          );
+                        }).toList();
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
             // 添加熟悉度切换按钮
@@ -801,7 +1941,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                         setState(() {
                           _isFamiliarityMode = !_isFamiliarityMode;
                           if (_isFamiliarityMode) {
-                            _mapController?.setMapStyle(_mapStyle);
+                            _mapController?.setMapStyle(_mapStyles[_currentMapStyle]);
                           } else {
                             _mapController?.setMapStyle(null);
                           }
@@ -936,6 +2076,109 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 ),
               ),
             ),
+            // 添加事件对话框
+            if (_showEventDialog && _currentEvent != null)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showEventDialog = false;
+                    });
+                    _showEventDetails(_currentEvent!);
+                  },
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _currentEvent!.title,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(_currentEvent!.description),
+                            if (_currentEvent!.reward != null) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                _currentEvent!.reward!,
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            const Text(
+                              '点击查看详情',
+                              style: TextStyle(
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            // 添加事件图标
+            if (_mapSize != null && _visibleRegion != null)
+              ..._eventService.getUndiscoveredEvents().map((event) {
+                final screenPoint = _latLngToScreenPoint(event.position);
+                if (screenPoint == null) return const SizedBox.shrink();
+                
+                final distance = _eventService.calculateDistance(_currentPosition, event.position);
+                final opacity = event.calculateOpacity(distance);
+                final size = event.calculateSize(distance);
+                
+                if (opacity <= 0 || size <= 0) return const SizedBox.shrink();
+                
+                return Positioned(
+                  left: screenPoint.dx - size / 2,
+                  top: screenPoint.dy - size / 2,
+                  child: Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: event.color.withOpacity(opacity * 0.2),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: event.color.withOpacity(opacity * 0.3),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        event.icon,
+                        color: event.color.withOpacity(opacity),
+                        size: size * 0.6,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
           ],
         );
       },
