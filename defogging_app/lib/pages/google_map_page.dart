@@ -8,13 +8,14 @@ import 'dart:ui' as ui;
 import '../services/location_service.dart';
 import '../database/location_model.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_google_maps_webservices/geocoding.dart';
 
 // 添加自定义遮罩层绘制器
 class FogOverlayPainter extends CustomPainter {
   final List<Offset> points;
   final double radius;
   final double opacity;
-  final double zoomLevel; // 添加缩放级别参数
+  final double zoomLevel;
 
   FogOverlayPainter({
     required this.points,
@@ -43,11 +44,31 @@ class FogOverlayPainter extends CustomPainter {
       ..blendMode = BlendMode.clear;
 
     // 计算实际擦除半径（根据缩放级别调整）
-    final actualRadius = radius * pow(2, zoomLevel - 18); // 18是基准缩放级别
+    final actualRadius = radius * pow(2, zoomLevel - 18);
 
-    // 一次性绘制所有圆形区域
+    // 为每个点创建羽化效果
     for (var point in points) {
-      canvas.drawCircle(point, actualRadius, clearPaint);
+      // 创建径向渐变
+      final gradient = RadialGradient(
+        colors: [
+          Colors.white.withOpacity(1.0),
+          Colors.white.withOpacity(0.0),
+        ],
+        stops: const [0.7, 1.0],
+      );
+
+      // 创建渐变画笔
+      final gradientPaint = Paint()
+        ..shader = gradient.createShader(
+          Rect.fromCircle(
+            center: point,
+            radius: actualRadius,
+          ),
+        )
+        ..blendMode = BlendMode.clear;
+
+      // 绘制羽化效果
+      canvas.drawCircle(point, actualRadius, gradientPaint);
     }
     
     // 恢复画布状态
@@ -109,7 +130,7 @@ class _JoystickControllerState extends State<JoystickController> {
       width: 120,
       height: 120,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
+        color: Colors.black.withOpacity(0.2),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
@@ -164,19 +185,23 @@ class JoystickPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.3)
-      ..style = PaintingStyle.fill;
-
-    // 绘制底部圆形
     final centerPoint = size.center(Offset.zero);
-    canvas.drawCircle(centerPoint, size.width / 2, paint);
-
-    // 绘制操纵杆
-    final stickPaint = Paint()
-      ..color = Colors.blue
+    // 绘制底部圆形（20%黑色半透明）
+    final basePaint = Paint()
+      ..color = Colors.black.withOpacity(0.2)
       ..style = PaintingStyle.fill;
+    canvas.drawCircle(centerPoint, size.width / 2, basePaint);
 
+    // 添加白色外发光阴影
+    final shadowPaint = Paint()
+      ..color = Colors.white.withOpacity(0.15)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+    canvas.drawCircle(centerPoint, size.width / 2 - 4, shadowPaint);
+
+    // 绘制操纵杆（纯白色）
+    final stickPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
     final stickPosition = isDragging ? current : centerPoint;
     canvas.drawCircle(stickPosition, 20, stickPaint);
   }
@@ -197,25 +222,22 @@ class GoogleMapPage extends StatefulWidget {
 
 class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveClientMixin {
   GoogleMapController? _mapController;
-  LatLng _center = const LatLng(51.5074, -0.1278); // 初始位置，后续会被实际位置更新
+  LatLng _center = const LatLng(51.5074, -0.1278);
   Set<Marker> _markers = {};
   final TextEditingController _searchController = TextEditingController();
   late final GoogleMapsPlaces _placesService;
-  LatLng _currentPosition = const LatLng(51.5074, -0.1278); // 当前位置，后续会被实际位置更新
+  LatLng _currentPosition = const LatLng(51.5074, -0.1278);
   final LocationService _locationService = LocationService();
   bool _isTracking = false;
-
-  // 添加熟悉度状态
-  bool _isFamiliarityMode = true; // 默认开启熟悉度显示模式
-  double _familiarityPercentage = 75.0; // 默认熟悉度为75%
-  
-  static const double _eraserRadius = 20.0; // 恢复正常擦除半径
-  // 存储地图坐标点而不是屏幕坐标点
+  bool _isFamiliarityMode = true;
+  double _familiarityPercentage = 75.0;
+  static const double _eraserRadius = 20.0;
   List<LatLng> _clearPoints = [];
   Size? _mapSize;
-
-  // 添加地图边界
   LatLngBounds? _visibleRegion;
+  double _currentZoom = 18.0;
+  bool _isPlacingMode = false;
+  bool _isSearchBarOpen = false;
 
   // 获取遮罩不透明度
   double get _overlayOpacity {
@@ -334,10 +356,8 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   // 移动位置
   void _movePosition(String direction) async {
     if (_mapController == null) return;
-
     setState(() {
       _currentPosition = _calculateOffset(_currentPosition, 2.0, direction);
-      
       _markers.clear();
       _markers.add(
         Marker(
@@ -349,21 +369,15 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
           ),
         ),
       );
-      
       if (_isTracking) {
         _clearPoints.add(_currentPosition);
       }
     });
-
-    // 保存虚拟点到本地数据库
     if (_isTracking) {
       await _locationService.saveVirtualLocation(_currentPosition);
     }
-
-    // 更新可见区域
     _visibleRegion = await _mapController!.getVisibleRegion();
-    setState(() {}); // 触发重绘以更新遮罩层
-
+    setState(() {});
     _mapController?.animateCamera(
       CameraUpdate.newLatLng(_currentPosition),
     );
@@ -371,13 +385,10 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
 
   // 添加斜向移动方法
   void _movePositionDiagonal(String direction1, String direction2) async {
-    // 计算斜向移动的位置
-    final pos1 = _calculateOffset(_currentPosition, 1.4, direction1); // 减小单方向距离以保持斜向距离合适
+    final pos1 = _calculateOffset(_currentPosition, 1.4, direction1);
     final pos2 = _calculateOffset(pos1, 1.4, direction2);
-    
     setState(() {
       _currentPosition = pos2;
-      
       _markers.clear();
       _markers.add(
         Marker(
@@ -389,17 +400,13 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
           ),
         ),
       );
-      
       if (_isTracking) {
         _clearPoints.add(_currentPosition);
       }
     });
-
-    // 保存虚拟点到本地数据库
     if (_isTracking) {
       await _locationService.saveVirtualLocation(_currentPosition);
     }
-
     _mapController?.animateCamera(
       CameraUpdate.newLatLng(_currentPosition),
     );
@@ -475,8 +482,6 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   void _onLocationUpdated(LocationPoint location) {
     setState(() {
       _currentPosition = LatLng(location.latitude, location.longitude);
-      
-      // 更新或添加标记
       final markerId = MarkerId(location.id?.toString() ?? DateTime.now().toString());
       _markers.removeWhere((marker) => marker.markerId == markerId);
       _markers.add(
@@ -489,8 +494,6 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
           ),
         ),
       );
-      
-      // 记录清除点
       _clearPoints.add(_currentPosition);
     });
   }
@@ -595,8 +598,6 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     super.dispose();
   }
 
-  double _currentZoom = 18.0; // 添加当前缩放级别状态
-
   // 添加获取当前位置的方法
   Future<void> _getCurrentLocation() async {
     try {
@@ -657,6 +658,18 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
               },
               tiltGesturesEnabled: false, // 禁用倾斜手势
               rotateGesturesEnabled: false, // 禁用旋转手势
+              onTap: _isPlacingMode
+                  ? (latLng) {
+                      setState(() {
+                        _currentPosition = latLng;
+                        _isPlacingMode = false;
+                      });
+                      _addMarker(latLng);
+                      _mapController?.animateCamera(
+                        CameraUpdate.newLatLng(latLng),
+                      );
+                    }
+                  : null,
             ),
             if (_isFamiliarityMode)
               Positioned.fill(
@@ -694,90 +707,17 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                     child: _GlowingWhiteDot(),
                   ),
               ],
+            // 顶部搜索栏和按钮
             Positioned(
               top: 60,
-              left: 15,
               right: 15,
-              child: Row(
-                children: [
-                  if (_isFamiliarityMode)
-                    Container(
-                      width: 65,
-                      height: 65,
-                      margin: const EdgeInsets.only(right: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          // 内层发光效果
-                          BoxShadow(
-                            color: Colors.white.withAlpha(204),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                          // 中层发光效果
-                          BoxShadow(
-                            color: Colors.white.withAlpha(128),
-                            blurRadius: 8,
-                            spreadRadius: 0,
-                          ),
-                          // 外层阴影
-                          BoxShadow(
-                            color: Colors.black.withAlpha(26),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${_familiarityPercentage.toInt()}%',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(26),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: '搜索地点...',
-                          border: InputBorder.none,
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.search),
-                            onPressed: () => _searchPlaces(_searchController.text),
-                          ),
-                        ),
-                        onSubmitted: _searchPlaces,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 添加熟悉度切换按钮
-            Positioned(
-              bottom: 180, // 定位按钮上方
-              right: 20,
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.ease,
+                width: _isSearchBarOpen ? 280 : 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Colors.black.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
@@ -785,18 +725,59 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                       blurRadius: 10,
                       spreadRadius: 1,
                     ),
-                    if (_isFamiliarityMode)
-                      BoxShadow(
-                        color: Colors.white.withAlpha(204),
-                        blurRadius: 20,
-                        spreadRadius: 2,
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    // 展开时显示输入框
+                    if (_isSearchBarOpen)
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: const InputDecoration(
+                              hintText: '搜索地点...',
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                            onSubmitted: _searchPlaces,
+                            autofocus: true,
+                          ),
+                        ),
                       ),
-                    if (_isFamiliarityMode)
-                      BoxShadow(
-                        color: Colors.white.withAlpha(128),
-                        blurRadius: 8,
-                        spreadRadius: 0,
-                      ),
+                    // 搜索按钮
+                    IconButton(
+                      icon: const Icon(Icons.search, color: Colors.white),
+                      onPressed: () {
+                        setState(() {
+                          if (_isSearchBarOpen) {
+                            // 已展开时点击，执行搜索
+                            _searchPlaces(_searchController.text);
+                          }
+                          _isSearchBarOpen = !_isSearchBarOpen;
+                        });
+                      },
+                      tooltip: '搜索',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // 添加熟悉度切换按钮
+            Positioned(
+              bottom: 280,
+              right: 20,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(26),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
                   ],
                 ),
                 child: Column(
@@ -805,7 +786,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                     IconButton(
                       icon: Icon(
                         _isTracking ? Icons.location_on : Icons.location_off,
-                        color: _isTracking ? Colors.blue : Colors.grey,
+                        color: Colors.white,
                       ),
                       onPressed: _toggleTracking,
                       tooltip: _isTracking ? '停止位置跟踪' : '开始位置跟踪',
@@ -814,20 +795,71 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                     IconButton(
                       icon: Icon(
                         _isFamiliarityMode ? Icons.visibility : Icons.visibility_off,
-                        color: _isFamiliarityMode ? Colors.black : Colors.grey,
+                        color: Colors.white,
                       ),
                       onPressed: () {
                         setState(() {
                           _isFamiliarityMode = !_isFamiliarityMode;
-                          // 切换遮罩模式时更新地图样式
                           if (_isFamiliarityMode) {
                             _mapController?.setMapStyle(_mapStyle);
                           } else {
-                            _mapController?.setMapStyle(null); // 恢复默认样式
+                            _mapController?.setMapStyle(null);
                           }
                         });
                       },
                       tooltip: _isFamiliarityMode ? '隐藏熟悉度' : '显示熟悉度',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // 添加缩放控制按钮
+            Positioned(
+              bottom: 175,
+              right: 20,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(26),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // 放大按钮
+                    IconButton(
+                      icon: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        if (_mapController != null) {
+                          _mapController!.animateCamera(
+                            CameraUpdate.zoomIn(),
+                          );
+                        }
+                      },
+                      tooltip: '放大',
+                    ),
+                    // 缩小按钮
+                    IconButton(
+                      icon: const Icon(
+                        Icons.remove,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        if (_mapController != null) {
+                          _mapController!.animateCamera(
+                            CameraUpdate.zoomOut(),
+                          );
+                        }
+                      },
+                      tooltip: '缩小',
                     ),
                   ],
                 ),
@@ -839,7 +871,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
               right: 20,
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Colors.black.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
@@ -852,18 +884,56 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 child: IconButton(
                   icon: const Icon(
                     Icons.my_location,
-                    color: Colors.black,
+                    color: Colors.white,
                   ),
-                  onPressed: _getCurrentLocation,
+                  onPressed: () {
+                    if (_mapController != null) {
+                      _mapController!.animateCamera(
+                        CameraUpdate.newLatLngZoom(_currentPosition, _currentZoom),
+                      );
+                    }
+                  },
                 ),
               ),
             ),
-            // 添加移动控制器
+            // 添加移动控制器和放置按钮
             Positioned(
               left: 20,
               bottom: 120,
               child: JoystickController(
                 onDirectionChanged: _onJoystickDirectionChanged,
+              ),
+            ),
+            // 放置模式按钮
+            Positioned(
+              left: 20,
+              bottom: 280,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(26),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.place,
+                    color: _isPlacingMode ? Colors.blue : Colors.white,
+                    size: 24,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPlacingMode = !_isPlacingMode;
+                    });
+                  },
+                ),
               ),
             ),
           ],

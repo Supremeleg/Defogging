@@ -3,20 +3,29 @@ import 'dart:ui';
 import 'package:defogging_app/pages/google_map_page.dart';
 import 'package:defogging_app/pages/analytics_page.dart';
 import 'package:defogging_app/pages/settings_page.dart';
+import 'package:defogging_app/pages/login_page.dart';
+import 'package:defogging_app/pages/profile_page.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:location/location.dart';
 import 'dart:io' show Platform;
 import 'database/database_helper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'services/auth_service.dart';
+import 'services/user_profile_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-  );
+    );
     print('Starting application initialization...');
+    
+    // 初始化 SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    print('Initializing SharedPreferences...');
     
     // 初始化数据库
     final dbHelper = DatabaseHelper();
@@ -30,7 +39,7 @@ void main() async {
     await _requestLocationPermission();
     
     print('Application initialization completed successfully');
-    runApp(const MyApp());
+    runApp(MyApp(prefs: prefs));
   } catch (e) {
     print('Error during application initialization: $e');
     // 在生产环境中，你可能想要显示一个用户友好的错误界面
@@ -72,7 +81,9 @@ Future<void> _requestLocationPermission() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final SharedPreferences prefs;
+
+  const MyApp({super.key, required this.prefs});
 
   // This widget is the root of your application.
   @override
@@ -98,7 +109,36 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const MainPage(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => AuthWrapper(prefs: prefs),
+        '/home': (context) => const MainPage(),
+        '/profile': (context) => ProfilePage(prefs: prefs),
+      },
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  final SharedPreferences prefs;
+
+  const AuthWrapper({super.key, required this.prefs});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: AuthService().authStateChanges,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (snapshot.hasData) {
+          return const MainPage();
+        }
+        
+        return LoginPage(prefs: prefs);
+      },
     );
   }
 }

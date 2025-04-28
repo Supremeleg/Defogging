@@ -44,6 +44,12 @@ dependencies:
   path: ^1.8.3
   firebase_core: ^3.13.0
   cloud_firestore: ^5.6.6
+  firebase_auth: ^5.5.3
+  shared_preferences: ^2.2.2
+  geolocator: ^11.0.0
+  permission_handler: ^11.3.0
+  geojson: ^1.0.0
+  geodesy: ^0.4.0-nullsafety.0
 
 dev_dependencies:
   flutter_test:
@@ -135,3 +141,5 @@ flutter:
     - assets/London/GBWFT.svg
     - assets/London/GBWND.svg
     - assets/London/GBWSM.svg
+    - assets/geojson/
+    - assets/geojson/london_boroughs.geojson
