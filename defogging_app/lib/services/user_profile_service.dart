@@ -10,7 +10,7 @@ class UserProfileService {
 
   UserProfileService(this._prefs);
 
-  // 获取当前用户的资料
+  // Get current user profile
   Future<UserProfile?> getCurrentUserProfile() async {
     final user = _auth.currentUser;
     if (user == null) return null;
@@ -22,25 +22,25 @@ class UserProfileService {
       }
       return null;
     } catch (e) {
-      print('获取用户资料失败: $e');
+      print('Failed to get user profile: $e');
       return null;
     }
   }
 
-  // 创建或更新用户资料
+  // Create or update user profile
   Future<void> createOrUpdateUserProfile(UserProfile profile) async {
     try {
       await _firestore.collection('users').doc(profile.uid).set(profile.toMap());
     } catch (e) {
-      print('更新用户资料失败: $e');
-      throw Exception('更新用户资料失败: $e');
+      print('Failed to update user profile: $e');
+      throw Exception('Failed to update user profile: $e');
     }
   }
 
-  // 更新用户显示名称
+  // Update user display name
   Future<void> updateDisplayName(String displayName) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('用户未登录');
+    if (user == null) throw Exception('User not logged in');
 
     try {
       await user.updateDisplayName(displayName);
@@ -49,15 +49,15 @@ class UserProfileService {
         await createOrUpdateUserProfile(profile.copyWith(displayName: displayName));
       }
     } catch (e) {
-      print('更新显示名称失败: $e');
-      throw Exception('更新显示名称失败: $e');
+      print('Failed to update display name: $e');
+      throw Exception('Failed to update display name: $e');
     }
   }
 
-  // 更新用户头像
+  // Update user avatar
   Future<void> updatePhotoURL(String photoURL) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('用户未登录');
+    if (user == null) throw Exception('User not logged in');
 
     try {
       await user.updatePhotoURL(photoURL);
@@ -66,15 +66,15 @@ class UserProfileService {
         await createOrUpdateUserProfile(profile.copyWith(photoURL: photoURL));
       }
     } catch (e) {
-      print('更新头像失败: $e');
-      throw Exception('更新头像失败: $e');
+      print('Failed to update avatar: $e');
+      throw Exception('Failed to update avatar: $e');
     }
   }
 
-  // 更新用户手机号
+  // Update user phone number
   Future<void> updatePhoneNumber(String phoneNumber) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('用户未登录');
+    if (user == null) throw Exception('User not logged in');
 
     try {
       final profile = await getCurrentUserProfile();
@@ -82,32 +82,32 @@ class UserProfileService {
         await createOrUpdateUserProfile(profile.copyWith(phoneNumber: phoneNumber));
       }
     } catch (e) {
-      print('更新手机号失败: $e');
-      throw Exception('更新手机号失败: $e');
+      print('Failed to update phone number: $e');
+      throw Exception('Failed to update phone number: $e');
     }
   }
 
-  // 记住登录状态
+  // Remember login state
   Future<void> rememberLoginState(bool remember) async {
     await _prefs.setBool('remember_login', remember);
   }
 
-  // 获取记住登录状态
+  // Get remember login state
   bool getRememberLoginState() {
     return _prefs.getBool('remember_login') ?? false;
   }
 
-  // 保存用户邮箱
+  // Save user email
   Future<void> saveUserEmail(String email) async {
     await _prefs.setString('user_email', email);
   }
 
-  // 获取保存的用户邮箱
+  // Get saved user email
   String? getSavedUserEmail() {
     return _prefs.getString('user_email');
   }
 
-  // 清除保存的登录信息
+  // Clear saved login information
   Future<void> clearSavedLoginInfo() async {
     await _prefs.remove('user_email');
     await _prefs.remove('remember_login');

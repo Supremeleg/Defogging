@@ -5,6 +5,7 @@ import 'package:defogging_app/pages/analytics_page.dart';
 import 'package:defogging_app/pages/settings_page.dart';
 import 'package:defogging_app/pages/login_page.dart';
 import 'package:defogging_app/pages/profile_page.dart';
+import 'package:defogging_app/pages/social_page.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:location/location.dart';
 import 'dart:io' show Platform;
@@ -23,11 +24,11 @@ void main() async {
     );
     print('Starting application initialization...');
     
-    // 初始化 SharedPreferences
+    // Initialize SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     print('Initializing SharedPreferences...');
     
-    // 初始化数据库
+    // Initialize database
     final dbHelper = DatabaseHelper();
     print('Initializing database...');
     await dbHelper.initializeDatabase();
@@ -42,7 +43,7 @@ void main() async {
     runApp(MyApp(prefs: prefs));
   } catch (e) {
     print('Error during application initialization: $e');
-    // 在生产环境中，你可能想要显示一个用户友好的错误界面
+    // In production, you might want to show a user-friendly error screen
     rethrow;
   }
 }
@@ -50,7 +51,7 @@ void main() async {
 Future<void> _requestLocationPermission() async {
   Location location = Location();
   
-  // 检查位置服务是否启用
+  // Check if location services are enabled
   bool serviceEnabled = await location.serviceEnabled();
   if (!serviceEnabled) {
     serviceEnabled = await location.requestService();
@@ -59,7 +60,7 @@ Future<void> _requestLocationPermission() async {
     }
   }
 
-  // 请求位置权限
+  // Request location permission
   PermissionStatus permissionStatus = await location.hasPermission();
   if (permissionStatus == PermissionStatus.denied) {
     permissionStatus = await location.requestPermission();
@@ -68,14 +69,14 @@ Future<void> _requestLocationPermission() async {
     }
   }
 
-  // 如果已获得位置权限，尝试启用后台模式
+  // If location permission is granted, try to enable background mode
   if (permissionStatus == PermissionStatus.granted) {
     try {
       await location.enableBackgroundMode(enable: true);
     } catch (e) {
-      // 如果启用后台模式失败，可能是因为没有后台权限
-      // 这是正常的，我们会在用户使用时再次尝试
-      print('后台位置权限未获得: $e');
+      // If enabling background mode fails, it might be because we don't have background permission
+      // This is normal, we'll try again when the user uses the app
+      print('Background location permission not granted: $e');
     }
   }
 }
@@ -89,7 +90,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '除雾应用',
+      title: 'Defogging App',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -155,7 +156,7 @@ class _MainPageState extends State<MainPage> {
 
   final List<IconData> _navigationIcons = [
     Icons.map_outlined,
-    Icons.history,
+    Icons.people_outline,
     Icons.analytics_outlined,
     Icons.settings_outlined,
   ];
@@ -169,11 +170,11 @@ class _MainPageState extends State<MainPage> {
           children: [
             IndexedStack(
               index: _selectedIndex,
-              children: const [
-                GoogleMapPage(),
-                Center(child: Text('历史页面')),
-                AnalyticsPage(),
-                SettingsPage(),
+              children: [
+                const GoogleMapPage(),
+                const SocialPage(),
+                const AnalyticsPage(),
+                const SettingsPage(),
               ],
             ),
             Positioned(

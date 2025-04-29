@@ -10,17 +10,17 @@ class EventService {
   final List<MapEvent> _events = [];
   final List<Function(MapEvent)> _onEventDiscovered = [];
 
-  // 添加事件发现监听器
+  // Add event discovery listener
   void addOnEventDiscoveredListener(Function(MapEvent) listener) {
     _onEventDiscovered.add(listener);
   }
 
-  // 移除事件发现监听器
+  // Remove event discovery listener
   void removeOnEventDiscoveredListener(Function(MapEvent) listener) {
     _onEventDiscovered.remove(listener);
   }
 
-  // 加载保存的事件
+  // Load saved events
   Future<void> loadEvents() async {
     final prefs = await SharedPreferences.getInstance();
     final eventsJson = prefs.getStringList(_eventsKey) ?? [];
@@ -30,14 +30,14 @@ class EventService {
     );
   }
 
-  // 保存事件
+  // Save events
   Future<void> saveEvents() async {
     final prefs = await SharedPreferences.getInstance();
     final eventsJson = _events.map((event) => jsonEncode(event.toJson())).toList();
     await prefs.setStringList(_eventsKey, eventsJson);
   }
 
-  // 生成随机事件
+  // Generate random event
   MapEvent generateRandomEvent(LatLng position) {
     final eventTypes = EventType.values;
     final type = eventTypes[_random.nextInt(eventTypes.length)];
@@ -48,23 +48,23 @@ class EventService {
 
     switch (type) {
       case EventType.treasure:
-        title = '神秘宝藏';
-        description = '你发现了一个神秘的宝藏！';
-        reward = '获得100金币';
+        title = 'Mysterious Treasure';
+        description = 'You found a mysterious treasure!';
+        reward = 'Get 100 gold coins';
         break;
       case EventType.story:
-        title = '神秘故事';
-        description = '这里似乎有一个有趣的故事...';
+        title = 'Mysterious Story';
+        description = 'There seems to be an interesting story here...';
         break;
       case EventType.challenge:
-        title = '探索挑战';
-        description = '完成这个挑战来获得奖励！';
-        reward = '获得50经验值';
+        title = 'Exploration Challenge';
+        description = 'Complete this challenge to get rewards!';
+        reward = 'Get 50 experience points';
         break;
       case EventType.surprise:
-        title = '意外惊喜';
-        description = '哇！这是一个惊喜！';
-        reward = '获得随机奖励';
+        title = 'Unexpected Surprise';
+        description = 'Wow! This is a surprise!';
+        reward = 'Get random rewards';
         break;
     }
 
@@ -79,7 +79,7 @@ class EventService {
     );
   }
 
-  // 在指定区域内生成随机事件
+  // Generate random events in specified area
   Future<void> generateEventsInArea(LatLngBounds bounds, int count) async {
     for (int i = 0; i < count; i++) {
       final lat = bounds.southwest.latitude +
@@ -93,7 +93,7 @@ class EventService {
     await saveEvents();
   }
 
-  // 检查是否发现新事件
+  // Check for new event discovery
   void checkForEvents(LatLng position) {
     for (var event in _events) {
       if (!event.isDiscovered) {
@@ -110,9 +110,9 @@ class EventService {
     }
   }
 
-  // 计算两点之间的距离（米）
+  // Calculate distance between two points (meters)
   double calculateDistance(LatLng point1, LatLng point2) {
-    const double earthRadius = 6371000; // 地球半径（米）
+    const double earthRadius = 6371000; // Earth radius (meters)
     final double lat1 = point1.latitude * pi / 180;
     final double lat2 = point2.latitude * pi / 180;
     final double dLat = (point2.latitude - point1.latitude) * pi / 180;
@@ -125,28 +125,28 @@ class EventService {
     return earthRadius * c;
   }
 
-  // 获取所有事件
+  // Get all events
   List<MapEvent> getAllEvents() {
     return List.unmodifiable(_events);
   }
 
-  // 获取未发现的事件
+  // Get undiscovered events
   List<MapEvent> getUndiscoveredEvents() {
     return _events.where((event) => !event.isDiscovered).toList();
   }
 
-  // 获取已发现的事件
+  // Get discovered events
   List<MapEvent> getDiscoveredEvents() {
     return _events.where((event) => event.isDiscovered).toList();
   }
 
-  // 清除所有事件
+  // Clear all events
   Future<void> clearEvents() async {
     _events.clear();
     await saveEvents();
   }
 
-  // 添加事件
+  // Add event
   Future<void> addEvent(MapEvent event) async {
     _events.add(event);
     await saveEvents();

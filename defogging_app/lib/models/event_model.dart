@@ -2,10 +2,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter/material.dart';
 
 enum EventType {
-  treasure,    // 宝藏
-  story,       // 故事事件
-  challenge,   // 挑战
-  surprise     // 惊喜
+  treasure,    // Treasure
+  story,       // Story event
+  challenge,   // Challenge
+  surprise     // Surprise
 }
 
 class MapEvent {
@@ -18,12 +18,12 @@ class MapEvent {
   final DateTime createdAt;
   final DateTime? discoveredAt;
   final String? reward;
-  final double radius; // 触发半径(米)
-  final double maxVisibleDistance; // 最大可见距离(米)
-  final double minOpacity; // 最小透明度
-  final double maxOpacity; // 最大透明度
-  final double minSize; // 最小尺寸
-  final double maxSize; // 最大尺寸
+  final double radius; // Trigger radius (meters)
+  final double maxVisibleDistance; // Maximum visible distance (meters)
+  final double minOpacity; // Minimum opacity
+  final double maxOpacity; // Maximum opacity
+  final double minSize; // Minimum size
+  final double maxSize; // Maximum size
 
   MapEvent({
     required this.id,
@@ -43,7 +43,7 @@ class MapEvent {
     this.maxSize = 96.0,
   });
 
-  // 获取事件图标
+  // Get event icon
   IconData get icon {
     switch (type) {
       case EventType.treasure:
@@ -57,7 +57,7 @@ class MapEvent {
     }
   }
 
-  // 获取事件颜色
+  // Get event color
   Color get color {
     switch (type) {
       case EventType.treasure:
@@ -71,7 +71,7 @@ class MapEvent {
     }
   }
 
-  // 计算当前距离下的透明度
+  // Calculate opacity based on current distance
   double calculateOpacity(double distance) {
     if (distance > maxVisibleDistance) return 0.0;
     if (distance <= radius) return maxOpacity;
@@ -79,7 +79,7 @@ class MapEvent {
            (1 - (distance - radius) / (maxVisibleDistance - radius));
   }
 
-  // 计算当前距离下的尺寸
+  // Calculate size based on current distance
   double calculateSize(double distance) {
     if (distance > maxVisibleDistance) return 0.0;
     if (distance <= radius) return maxSize;
@@ -87,7 +87,7 @@ class MapEvent {
            (1 - (distance - radius) / (maxVisibleDistance - radius));
   }
 
-  // 从JSON创建对象
+  // Create object from JSON
   factory MapEvent.fromJson(Map<String, dynamic> json) {
     return MapEvent(
       id: json['id'],
@@ -115,7 +115,7 @@ class MapEvent {
     );
   }
 
-  // 转换为JSON
+  // Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -139,7 +139,7 @@ class MapEvent {
     };
   }
 
-  // 创建已发现的事件副本
+  // Create a copy of the event with discovered status
   MapEvent copyWithDiscovered() {
     return MapEvent(
       id: id,

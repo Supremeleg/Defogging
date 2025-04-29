@@ -49,7 +49,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载用户资料失败: $e')),
+          SnackBar(content: Text('Failed to load user profile: $e')),
         );
       }
     } finally {
@@ -73,14 +73,14 @@ class _ProfilePageState extends State<ProfilePage> {
           });
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('资料更新成功')),
+              const SnackBar(content: Text('Profile updated successfully')),
             );
           }
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('更新资料失败: $e')),
+            SnackBar(content: Text('Failed to update profile: $e')),
           );
         }
       } finally {
@@ -96,12 +96,12 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     if (_userProfile == null) {
-      return const Center(child: Text('未找到用户资料'));
+      return const Center(child: Text('User profile not found'));
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('个人资料'),
+        title: const Text('Profile'),
         actions: [
           if (!_isEditing)
             IconButton(
@@ -146,7 +146,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: IconButton(
                             icon: const Icon(Icons.camera_alt, color: Colors.white),
                             onPressed: () {
-                              // TODO: 实现头像上传功能
+                              // TODO: Implement avatar upload functionality
                             },
                           ),
                         ),
@@ -158,13 +158,13 @@ class _ProfilePageState extends State<ProfilePage> {
               TextFormField(
                 controller: _displayNameController,
                 decoration: const InputDecoration(
-                  labelText: '显示名称',
+                  labelText: 'Display Name',
                   border: OutlineInputBorder(),
                 ),
                 enabled: _isEditing,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return '请输入显示名称';
+                    return 'Please enter a display name';
                   }
                   return null;
                 },
@@ -173,7 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
               TextFormField(
                 controller: _phoneNumberController,
                 decoration: const InputDecoration(
-                  labelText: '手机号码',
+                  labelText: 'Phone Number',
                   border: OutlineInputBorder(),
                 ),
                 enabled: _isEditing,
@@ -181,7 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 validator: (value) {
                   if (value != null && value.isNotEmpty) {
                     if (!RegExp(r'^\+?[\d\s-]{10,}$').hasMatch(value)) {
-                      return '请输入有效的手机号码';
+                      return 'Please enter a valid phone number';
                     }
                   }
                   return null;
@@ -189,17 +189,17 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                title: const Text('邮箱'),
+                title: const Text('Email'),
                 subtitle: Text(_userProfile!.email),
               ),
               const SizedBox(height: 16),
               ListTile(
-                title: const Text('注册时间'),
+                title: const Text('Registration Date'),
                 subtitle: Text(_userProfile!.createdAt.toString()),
               ),
               const SizedBox(height: 16),
               ListTile(
-                title: const Text('最后登录'),
+                title: const Text('Last Login'),
                 subtitle: Text(_userProfile!.lastLoginAt.toString()),
               ),
             ],

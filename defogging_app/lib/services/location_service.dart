@@ -12,13 +12,13 @@ class LocationService {
   bool _isListening = false;
   StreamSubscription<LocationData>? _locationSubscription;
   
-  // 定义坐标精度（米）
+  // Define coordinate precision (meters)
   static const double _coordinatePrecision = 10.0;
   
-  // 添加位置更新回调
+  // Add location update callback
   Function(LocationPoint)? onLocationUpdated;
   
-  // 上传位置到 Firestore
+  // Upload location to Firestore
   Future<void> uploadLocationToFirestore(LocationPoint location) async {
     try {
       await FirebaseFirestore.instance.collection('locations').add({
@@ -28,28 +28,28 @@ class LocationService {
         'timestamp': location.timestamp.toIso8601String(),
       });
     } catch (e) {
-      print('上传位置到 Firestore 失败: $e');
+      print('Failed to upload location to Firestore: $e');
     }
   }
   
-  // 添加获取当前位置的方法
+  // Add method to get current location
   Future<LocationPoint?> getCurrentLocation() async {
     try {
-      // 检查位置服务是否启用
+      // Check if location service is enabled
       bool serviceEnabled = await _location.serviceEnabled();
       if (!serviceEnabled) {
         serviceEnabled = await _location.requestService();
         if (!serviceEnabled) return null;
       }
 
-      // 检查位置权限
+      // Check location permission
       PermissionStatus permission = await _location.hasPermission();
       if (permission == PermissionStatus.denied) {
         permission = await _location.requestPermission();
         if (permission != PermissionStatus.granted) return null;
       }
 
-      // 获取当前位置
+      // Get current location
       final locationData = await _location.getLocation();
       if (locationData.latitude == null || locationData.longitude == null) return null;
 
@@ -60,14 +60,14 @@ class LocationService {
         timestamp: DateTime.now(),
       );
     } catch (e) {
-      print('获取当前位置失败: $e');
+      print('Failed to get current location: $e');
       return null;
     }
   }
   
-  // 计算两点之间的距离（米）
+  // Calculate distance between two points (meters)
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    const double earthRadius = 6371000; // 地球半径（米）
+    const double earthRadius = 6371000; // Earth radius (meters)
     double dLat = _toRadians(lat2 - lat1);
     double dLon = _toRadians(lon2 - lon1);
     
@@ -87,46 +87,46 @@ class LocationService {
     if (_isListening) return;
 
     try {
-      // 检查位置服务是否启用
+      // Check if location service is enabled
       bool serviceEnabled = await _location.serviceEnabled();
       if (!serviceEnabled) {
         serviceEnabled = await _location.requestService();
         if (!serviceEnabled) return;
       }
 
-      // 检查位置权限
+      // Check location permission
       PermissionStatus permission = await _location.hasPermission();
       if (permission == PermissionStatus.denied) {
         permission = await _location.requestPermission();
         if (permission != PermissionStatus.granted) return;
       }
 
-      // 设置位置更新参数
+      // Set location update parameters
       await _location.changeSettings(
         accuracy: LocationAccuracy.high,
-        interval: 10000, // 每10秒更新一次
-        distanceFilter: 10, // 移动10米才更新
+        interval: 10000, // Update every 10 seconds
+        distanceFilter: 10, // Update when moving 10 meters
       );
 
-      // 尝试启用后台模式
+      // Try to enable background mode
       try {
         await _location.enableBackgroundMode(enable: true);
-        print('后台位置模式已启用');
+        print('Background location mode enabled');
       } catch (e) {
-        print('无法启用后台位置模式: $e');
-        // 继续执行，但只在前台跟踪位置
+        print('Unable to enable background location mode: $e');
+        // Continue execution, but only track location in foreground
       }
 
-      // 开始监听位置变化
+      // Start listening to location changes
       _locationSubscription = _location.onLocationChanged.listen(
         (LocationData currentLocation) async {
           if (currentLocation.latitude == null || currentLocation.longitude == null) return;
 
           try {
-            // 获取所有位置记录
+            // Get all location records
             List<LocationPoint> allLocations = await _dbHelper.getAllLocations();
             
-            // 查找最近的位置点
+            // Find nearest location point
             LocationPoint? nearestLocation;
             double minDistance = double.infinity;
             
@@ -145,7 +145,7 @@ class LocationService {
             }
 
             if (nearestLocation != null && minDistance <= _coordinatePrecision) {
-              // 更新访问次数
+              // Update visit count
               nearestLocation = LocationPoint(
                 id: nearestLocation.id,
                 latitude: nearestLocation.latitude,
@@ -154,12 +154,12 @@ class LocationService {
                 timestamp: DateTime.now(),
               );
               await _dbHelper.updateLocation(nearestLocation);
-              print('更新位置点访问次数: ${nearestLocation.visitCount}');
+              print('Updated location point visit count: ${nearestLocation.visitCount}');
               await uploadLocationToFirestore(nearestLocation);
-              // 通知位置更新
+              // Notify location update
               onLocationUpdated?.call(nearestLocation);
             } else {
-              // 创建新的位置记录
+              // Create new location record
               LocationPoint newLocation = LocationPoint(
                 latitude: currentLocation.latitude!,
                 longitude: currentLocation.longitude!,
@@ -167,26 +167,26 @@ class LocationService {
                 timestamp: DateTime.now(),
               );
               await _dbHelper.insertLocation(newLocation);
-              print('新建位置点记录');
+              print('Created new location point record');
               await uploadLocationToFirestore(newLocation);
-              // 通知位置更新
+              // Notify location update
               onLocationUpdated?.call(newLocation);
             }
           } catch (e) {
-            print('处理位置更新时出错: $e');
+            print('Error processing location update: $e');
           }
         },
         onError: (e) {
-          print('位置监听错误: $e');
+          print('Location listener error: $e');
           _isListening = false;
         },
         cancelOnError: false,
       );
 
       _isListening = true;
-      print('位置跟踪服务已启动');
+      print('Location tracking service started');
     } catch (e) {
-      print('启动位置跟踪服务时出错: $e');
+      print('Error starting location tracking service: $e');
       _isListening = false;
       rethrow;
     }
@@ -200,14 +200,14 @@ class LocationService {
       
       try {
         await _location.enableBackgroundMode(enable: false);
-        print('后台位置模式已禁用');
+        print('Background location mode disabled');
       } catch (e) {
-        print('禁用后台位置模式时出错: $e');
+        print('Error disabling background location mode: $e');
       }
       
-      print('位置跟踪服务已停止');
+      print('Location tracking service stopped');
     } catch (e) {
-      print('停止位置跟踪服务时出错: $e');
+      print('Error stopping location tracking service: $e');
       rethrow;
     }
   }
@@ -216,7 +216,7 @@ class LocationService {
     try {
       return await _dbHelper.getAllLocations();
     } catch (e) {
-      print('获取所有位置记录时出错: $e');
+      print('Error getting all location records: $e');
       rethrow;
     }
   }

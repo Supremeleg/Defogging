@@ -62,7 +62,7 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
 
-        // 处理记住登录状态
+        // Handle remember login state
         if (_rememberMe) {
           await _userProfileService.saveUserEmail(_emailController.text);
           await _userProfileService.rememberLoginState(true);
@@ -118,23 +118,23 @@ class _LoginPageState extends State<LoginPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _isLogin ? '登录' : '注册',
+                          _isLogin ? 'Login' : 'Register',
                           style: Theme.of(context).textTheme.headlineMedium,
                         ),
                         const SizedBox(height: 24),
                         TextFormField(
                           controller: _emailController,
                           decoration: const InputDecoration(
-                            labelText: '邮箱',
+                            labelText: 'Email',
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return '请输入邮箱';
+                              return 'Please enter your email';
                             }
                             if (!value.contains('@')) {
-                              return '请输入有效的邮箱地址';
+                              return 'Please enter a valid email address';
                             }
                             return null;
                           },
@@ -143,16 +143,16 @@ class _LoginPageState extends State<LoginPage> {
                         TextFormField(
                           controller: _passwordController,
                           decoration: const InputDecoration(
-                            labelText: '密码',
+                            labelText: 'Password',
                             border: OutlineInputBorder(),
                           ),
                           obscureText: true,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return '请输入密码';
+                              return 'Please enter your password';
                             }
                             if (value.length < 6) {
-                              return '密码长度至少为6位';
+                              return 'Password must be at least 6 characters';
                             }
                             return null;
                           },
@@ -167,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                                   setState(() => _rememberMe = value ?? false);
                                 },
                               ),
-                              const Text('记住我'),
+                              const Text('Remember me'),
                             ],
                           ),
                         ],
@@ -179,7 +179,7 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: _isLoading ? null : _submitForm,
                             child: _isLoading
                                 ? const CircularProgressIndicator()
-                                : Text(_isLogin ? '登录' : '注册'),
+                                : Text(_isLogin ? 'Login' : 'Register'),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -188,7 +188,7 @@ class _LoginPageState extends State<LoginPage> {
                             setState(() => _isLogin = !_isLogin);
                           },
                           child: Text(
-                            _isLogin ? '没有账号？点击注册' : '已有账号？点击登录',
+                            _isLogin ? 'No account? Click to register' : 'Already have an account? Click to login',
                           ),
                         ),
                         if (_isLogin) ...[
@@ -197,7 +197,7 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: () async {
                               if (_emailController.text.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('请输入邮箱地址')),
+                                  const SnackBar(content: Text('Please enter your email address')),
                                 );
                                 return;
                               }
@@ -205,7 +205,7 @@ class _LoginPageState extends State<LoginPage> {
                                 await _authService.resetPassword(_emailController.text);
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('重置密码邮件已发送')),
+                                    const SnackBar(content: Text('Password reset email has been sent')),
                                   );
                                 }
                               } catch (e) {
@@ -216,7 +216,7 @@ class _LoginPageState extends State<LoginPage> {
                                 }
                               }
                             },
-                            child: const Text('忘记密码？'),
+                            child: const Text('Forgot password?'),
                           ),
                         ],
                       ],

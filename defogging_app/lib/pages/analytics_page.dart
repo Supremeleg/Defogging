@@ -10,8 +10,8 @@ class AnalyticsPage extends StatefulWidget {
 }
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
-  int selectedTab = 0; // 0: Уроки, 1: Значение карт
-  int selectedCard = -1; // 当前选中的卡片索引
+  int selectedTab = 0; // 0: Lessons, 1: Card Meanings
+  int selectedCard = -1; // Currently selected card index
   String searchText = '';
 
   final List<_CardItem> cards = [
@@ -101,7 +101,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   ),
                 ],
               ),
-              // 渐变遮罩层
+              // Gradient overlay
               Positioned(
                 left: 0,
                 right: 0,
@@ -114,10 +114,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Color.fromRGBO(0, 0, 0, 0.5), // 底部50%黑色
-                          Color.fromRGBO(0, 0, 0, 0.0), // 顶部透明
+                          Color.fromRGBO(0, 0, 0, 0.5), // 50% black at bottom
+                          Color.fromRGBO(0, 0, 0, 0.0), // Transparent at top
                         ],
-                        stops: [0.0, 0.25], // 渐变到顶部25%处为全透明
+                        stops: [0.0, 0.25], // Gradient to 25% from top is fully transparent
                       ),
                     ),
                   ),

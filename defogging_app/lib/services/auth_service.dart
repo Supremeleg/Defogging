@@ -3,13 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // 获取当前用户
+  // Get current user
   User? get currentUser => _auth.currentUser;
 
-  // 用户状态流
+  // User state stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // 使用邮箱和密码注册
+  // Register with email and password
   Future<UserCredential> signUpWithEmailAndPassword(String email, String password) async {
     try {
       return await _auth.createUserWithEmailAndPassword(
@@ -17,11 +17,11 @@ class AuthService {
         password: password,
       );
     } catch (e) {
-      throw Exception('注册失败: $e');
+      throw Exception('Registration failed: $e');
     }
   }
 
-  // 使用邮箱和密码登录
+  // Sign in with email and password
   Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
     try {
       return await _auth.signInWithEmailAndPassword(
@@ -29,25 +29,25 @@ class AuthService {
         password: password,
       );
     } catch (e) {
-      throw Exception('登录失败: $e');
+      throw Exception('Login failed: $e');
     }
   }
 
-  // 退出登录
+  // Sign out
   Future<void> signOut() async {
     try {
       await _auth.signOut();
     } catch (e) {
-      throw Exception('退出登录失败: $e');
+      throw Exception('Sign out failed: $e');
     }
   }
 
-  // 重置密码
+  // Reset password
   Future<void> resetPassword(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
-      throw Exception('重置密码失败: $e');
+      throw Exception('Password reset failed: $e');
     }
   }
 } 

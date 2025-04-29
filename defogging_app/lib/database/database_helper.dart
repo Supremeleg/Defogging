@@ -28,12 +28,12 @@ class DatabaseHelper {
         onCreate: _onCreate,
         onOpen: (db) async {
           print('Database opened successfully');
-          // 验证表是否存在
+          // Verify if table exists
           var tableExists = await isTableExists(db, 'locations');
           print('Locations table exists: $tableExists');
           
           if (!tableExists) {
-            // 如果表不存在，创建表
+            // If table doesn't exist, create it
             await _onCreate(db, 1);
           }
         },
@@ -68,7 +68,7 @@ class DatabaseHelper {
     }
   }
 
-  // 检查表是否存在
+  // Check if table exists
   Future<bool> isTableExists(Database db, String tableName) async {
     try {
       var result = await db.query(
@@ -83,7 +83,7 @@ class DatabaseHelper {
     }
   }
 
-  // 初始化数据库
+  // Initialize database
   Future<void> initializeDatabase() async {
     try {
       final db = await database;
@@ -91,7 +91,7 @@ class DatabaseHelper {
       print('Database initialized, locations table exists: $tableExists');
       
       if (!tableExists) {
-        // 如果表不存在，尝试创建
+        // If table doesn't exist, try to create it
         print('Attempting to create locations table');
         await _onCreate(db, 1);
       }

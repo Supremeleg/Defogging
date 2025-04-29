@@ -11,8 +11,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_google_maps_webservices/geocoding.dart';
 import '../services/event_service.dart';
 import '../models/event_model.dart';
+import '../models/card_model.dart';
+import '../services/card_service.dart';
 
-// 添加自定义遮罩层绘制器
+// Add custom overlay painter
 class FogOverlayPainter extends CustomPainter {
   final List<Offset> points;
   final double radius;
@@ -28,10 +30,10 @@ class FogOverlayPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 保存画布状态
+    // Save canvas state
     canvas.saveLayer(Offset.zero & size, Paint());
     
-    // 创建由外向内的渐变
+    // Create gradient from outside to inside
     final gradient = RadialGradient(
       center: Alignment.center,
       radius: 1.0,
@@ -46,7 +48,7 @@ class FogOverlayPainter extends CustomPainter {
       stops: const [0.0, 0.2, 0.4, 0.6, 0.8, 1.0],
     );
 
-    // 绘制渐变背景
+    // Draw gradient background
     canvas.drawRect(
       Offset.zero & size,
       Paint()
@@ -56,18 +58,18 @@ class FogOverlayPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
     
-    // 使用BlendMode.clear绘制透明区域
+    // Use BlendMode.clear to draw transparent areas
     final clearPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill
       ..blendMode = BlendMode.clear;
 
-    // 计算实际擦除半径（根据缩放级别调整）
+    // Calculate actual erasure radius (adjusted based on zoom level)
     final actualRadius = radius * pow(2, zoomLevel - 18);
 
-    // 为每个点创建羽化效果
+    // Create feathering effect for each point
     for (var point in points) {
-      // 创建径向渐变
+      // Create radial gradient
       final pointGradient = RadialGradient(
         colors: [
           Colors.white.withOpacity(1.0),
@@ -76,7 +78,7 @@ class FogOverlayPainter extends CustomPainter {
         stops: const [0.7, 1.0],
       );
 
-      // 创建渐变画笔
+      // Create gradient brush
       final gradientPaint = Paint()
         ..shader = pointGradient.createShader(
           Rect.fromCircle(
@@ -86,11 +88,11 @@ class FogOverlayPainter extends CustomPainter {
         )
         ..blendMode = BlendMode.clear;
 
-      // 绘制羽化效果
+      // Draw feathering effect
       canvas.drawCircle(point, actualRadius, gradientPaint);
     }
     
-    // 恢复画布状态
+    // Restore canvas state
     canvas.restore();
   }
 
@@ -103,7 +105,7 @@ class FogOverlayPainter extends CustomPainter {
   }
 }
 
-// 添加遥感控制器组件
+// Add joystick controller component
 class JoystickController extends StatefulWidget {
   final Function(double angle, double distance) onDirectionChanged;
 
@@ -120,7 +122,7 @@ class _JoystickControllerState extends State<JoystickController> {
   Offset _startPosition = Offset.zero;
   Offset _currentPosition = Offset.zero;
   bool _isDragging = false;
-  final double _maxDistance = 30.0; // 最大拖动距离
+  final double _maxDistance = 30.0; // Maximum drag distance
 
   void _updatePosition(Offset position) {
     final delta = position - _startPosition;
@@ -133,7 +135,7 @@ class _JoystickControllerState extends State<JoystickController> {
       _currentPosition = position;
     }
 
-    // 计算角度和距离
+    // Calculate angle and distance
     final angle = atan2(
       _currentPosition.dy - _startPosition.dy,
       _currentPosition.dx - _startPosition.dx,
@@ -205,19 +207,19 @@ class JoystickPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final centerPoint = size.center(Offset.zero);
-    // 绘制底部圆形（20%黑色半透明）
+    // Draw bottom circle (20% black semi-transparent)
     final basePaint = Paint()
       ..color = Colors.black.withOpacity(0.2)
       ..style = PaintingStyle.fill;
     canvas.drawCircle(centerPoint, size.width / 2, basePaint);
 
-    // 添加白色外发光阴影
+    // Add white outer glow shadow
     final shadowPaint = Paint()
       ..color = Colors.white.withOpacity(0.15)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
     canvas.drawCircle(centerPoint, size.width / 2 - 4, shadowPaint);
 
-    // 绘制操纵杆（纯白色）
+    // Draw joystick (pure white)
     final stickPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
@@ -254,20 +256,25 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   List<LatLng> _clearPoints = [];
   Size? _mapSize;
   LatLngBounds? _visibleRegion;
-  double _currentZoom = 18.0;
+  double _currentZoom = 22.0;
   bool _isPlacingMode = false;
   bool _isSearchBarOpen = false;
   final EventService _eventService = EventService();
   List<MapEvent> _discoveredEvents = [];
   bool _showEventDialog = false;
   MapEvent? _currentEvent;
+  final CardService _cardService = CardService();
+  List<CardModel> _collectedCards = [];
+  bool _showCardDialog = false;
+  CardModel? _currentCard;
+  List<CardModel> _randomCards = []; // 添加一个变量来存储生成的卡片
 
-  // 获取遮罩不透明度
+  // Get overlay opacity
   double get _overlayOpacity {
     return 0.7;
   }
 
-  // 添加坐标转换方法
+  // Add coordinate conversion method
   Offset? _latLngToScreenPoint(LatLng latLng) {
     if (_visibleRegion == null || _mapSize == null || _mapController == null) return null;
 
@@ -283,10 +290,10 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     return Offset(x, y);
   }
 
-  // 添加地图样式列表
+  // Add map style list
   final Map<String, String> _mapStyles = {
-    '默认': '',
-    '深邃紫': '''
+    'Default': '',
+    'Deep Purple': '''
     [
       {
         "featureType": "poi",
@@ -403,7 +410,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '极简黑白': '''
+    'Minimalist Black and White': '''
     [
       {
         "featureType": "poi",
@@ -528,7 +535,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '午夜蓝': '''
+    'Midnight Blue': '''
     [
       {
         "featureType": "poi",
@@ -601,7 +608,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '复古棕': '''
+    'Retro Brown': '''
     [
       {
         "elementType": "geometry",
@@ -648,7 +655,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '极光': '''
+    'Aurora': '''
     [
       {
         "elementType": "geometry",
@@ -725,7 +732,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '日落': '''
+    'Sunset': '''
     [
       {
         "elementType": "geometry",
@@ -799,7 +806,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '梦幻': '''
+    'Dream': '''
     [
       {
         "elementType": "geometry",
@@ -876,7 +883,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '圣诞': '''
+    'Christmas': '''
     [
       {
         "featureType": "poi",
@@ -958,7 +965,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '春节': '''
+    'Spring Festival': '''
     [
       {
         "featureType": "poi",
@@ -1040,89 +1047,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '万圣节': '''
-    [
-      {
-        "featureType": "poi",
-        "elementType": "labels",
-        "stylers": [
-          {
-            "visibility": "off"
-          }
-        ]
-      },
-      {
-        "featureType": "poi.business",
-        "stylers": [
-          {
-            "visibility": "off"
-          }
-        ]
-      },
-      {
-        "featureType": "poi.park",
-        "elementType": "labels.text",
-        "stylers": [
-          {
-            "visibility": "off"
-          }
-        ]
-      },
-      {
-        "elementType": "geometry",
-        "stylers": [
-          {
-            "color": "#1a1a1a"
-          }
-        ]
-      },
-      {
-        "elementType": "labels.text.fill",
-        "stylers": [
-          {
-            "color": "#ff6b6b"
-          }
-        ]
-      },
-      {
-        "featureType": "landscape",
-        "elementType": "geometry",
-        "stylers": [
-          {
-            "color": "#1a1a1a"
-          }
-        ]
-      },
-      {
-        "featureType": "road",
-        "elementType": "geometry",
-        "stylers": [
-          {
-            "color": "#2d2d2d"
-          }
-        ]
-      },
-      {
-        "featureType": "road.highway",
-        "elementType": "geometry",
-        "stylers": [
-          {
-            "color": "#3d3d3d"
-          }
-        ]
-      },
-      {
-        "featureType": "water",
-        "elementType": "geometry",
-        "stylers": [
-          {
-            "color": "#0d0d0d"
-          }
-        ]
-      }
-    ]
-    ''',
-    '中秋': '''
+    'Mid-Autumn Festival': '''
     [
       {
         "featureType": "poi",
@@ -1204,7 +1129,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     ]
     ''',
-    '情人节': '''
+    'Valentine\'s Day': '''
     [
       {
         "featureType": "poi",
@@ -1288,55 +1213,54 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     '''
   };
 
-  // 添加场景推荐映射
+  // Add scene recommendation mapping
   final Map<String, String> _sceneRecommendations = {
-    '白天探索': '极简黑白',
-    '夜间探索': '深邃紫',
-    '黄昏探索': '日落',
-    '雨天探索': '午夜蓝',
-    '怀旧探索': '复古棕',
-    '梦境探索': '梦幻',
-    '极地探索': '极光',
-    '圣诞探索': '圣诞',
-    '春节探索': '春节',
-    '万圣探索': '万圣节',
-    '中秋探索': '中秋',
-    '情人节探索': '情人节'
+    'Daytime Exploration': 'Minimalist Black and White',
+    'Night Exploration': 'Deep Purple',
+    'Dusk Exploration': 'Sunset',
+    'Rainy Exploration': 'Midnight Blue',
+    'Retro Exploration': 'Retro Brown',
+    'Dream Exploration': 'Dream',
+    'Arctic Exploration': 'Aurora',
+    'Christmas Exploration': 'Christmas',
+    'Spring Festival Exploration': 'Spring Festival',
+    'Mid-Autumn Festival Exploration': 'Mid-Autumn Festival',
+    'Valentine\'s Day Exploration': 'Valentine\'s Day'
   };
 
-  String _currentMapStyle = ''; // 初始化为空字符串
+  String _currentMapStyle = ''; // Initialize as empty string
 
-  // 获取场景推荐
+  // Get scene recommendation
   String _getSceneRecommendation() {
     final hour = DateTime.now().hour;
     final now = DateTime.now();
     final month = now.month;
     final day = now.day;
     
-    // 检查节日
+    // Check for holidays
     if (month == 12 && day >= 20 && day <= 26) {
-      return _sceneRecommendations['圣诞探索']!;
+      return _sceneRecommendations['Christmas Exploration']!;
     } else if (month == 1 && day >= 20 && day <= 26) {
-      return _sceneRecommendations['春节探索']!;
+      return _sceneRecommendations['Spring Festival Exploration']!;
     } else if (month == 10 && day >= 28 && day <= 31) {
-      return _sceneRecommendations['万圣探索']!;
+      return _sceneRecommendations['Mid-Autumn Festival Exploration']!;
     } else if (month == 9 && day >= 15 && day <= 17) {
-      return _sceneRecommendations['中秋探索']!;
+      return _sceneRecommendations['Valentine\'s Day Exploration']!;
     } else if (month == 2 && day >= 12 && day <= 14) {
-      return _sceneRecommendations['情人节探索']!;
+      return _sceneRecommendations['Valentine\'s Day Exploration']!;
     }
     
-    // 根据时间选择日常样式
+    // Select daily style based on time
     if (hour >= 19 || hour < 6) {
-      return _sceneRecommendations['夜间探索']!;
+      return _sceneRecommendations['Night Exploration']!;
     } else if (hour >= 16 && hour < 19) {
-      return _sceneRecommendations['黄昏探索']!;
+      return _sceneRecommendations['Dusk Exploration']!;
     } else {
-      return _sceneRecommendations['白天探索']!;
+      return _sceneRecommendations['Daytime Exploration']!;
     }
   }
 
-  // 切换地图样式
+  // Change map style
   void _changeMapStyle(String styleName) {
     setState(() {
       _currentMapStyle = styleName;
@@ -1346,15 +1270,15 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     });
   }
 
-  // 计算经纬度偏移
+  // Calculate latitude and longitude offset
   LatLng _calculateOffset(LatLng position, double distanceMeters, String direction) {
-    // 地球半径（米）
+    // Earth radius (meters)
     const double earthRadius = 6371000;
     
-    // 将距离转换为弧度
+    // Convert distance to radians
     double distanceRadians = distanceMeters / earthRadius;
     
-    // 当前位置的经纬度（弧度）
+    // Latitude and longitude of current position (radians)
     double latRad = position.latitude * (pi / 180);
     double lngRad = position.longitude * (pi / 180);
     
@@ -1381,14 +1305,14 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
         return position;
     }
     
-    // 转换回角度
+    // Convert back to degrees
     return LatLng(
       newLatRad * (180 / pi),
       newLngRad * (180 / pi),
     );
   }
 
-  // 移动位置
+  // Move position
   void _movePosition(String direction) async {
     if (_mapController == null) return;
     setState(() {
@@ -1399,8 +1323,8 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
           markerId: const MarkerId('current_position'),
           position: _currentPosition,
           infoWindow: InfoWindow(
-            title: '当前位置',
-            snippet: '纬度: ${_currentPosition.latitude}, 经度: ${_currentPosition.longitude}',
+            title: 'Current Position',
+            snippet: 'Latitude: ${_currentPosition.latitude}, Longitude: ${_currentPosition.longitude}',
           ),
         ),
       );
@@ -1418,7 +1342,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     );
   }
 
-  // 添加斜向移动方法
+  // Add diagonal movement method
   void _movePositionDiagonal(String direction1, String direction2) async {
     final pos1 = _calculateOffset(_currentPosition, 1.4, direction1);
     final pos2 = _calculateOffset(pos1, 1.4, direction2);
@@ -1430,8 +1354,8 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
           markerId: const MarkerId('current_position'),
           position: _currentPosition,
           infoWindow: InfoWindow(
-            title: '当前位置',
-            snippet: '纬度: ${_currentPosition.latitude}, 经度: ${_currentPosition.longitude}',
+            title: 'Current Position',
+            snippet: 'Latitude: ${_currentPosition.latitude}, Longitude: ${_currentPosition.longitude}',
           ),
         ),
       );
@@ -1447,14 +1371,14 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     );
   }
 
-  // 添加遥感控制方法
+  // Add joystick control method
   void _onJoystickDirectionChanged(double angle, double distance) {
-    if (distance == 0) return; // 如果没有移动，直接返回
+    if (distance == 0) return; // If no movement, return immediately
 
-    // 将弧度转换为角度
+    // Convert angle to degrees
     final degrees = (angle * 180 / pi + 360) % 360;
     
-    // 计算移动方向
+    // Calculate movement direction
     String direction1 = '';
     String direction2 = '';
     
@@ -1480,7 +1404,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       direction2 = 'east';
     }
 
-    // 根据方向移动
+    // Move based on direction
     if (direction2.isEmpty) {
       _movePosition(direction1);
     } else {
@@ -1489,7 +1413,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   }
 
   @override
-  bool get wantKeepAlive => true; // 保持页面状态
+  bool get wantKeepAlive => true; // Keep page state
 
   @override
   void initState() {
@@ -1497,41 +1421,42 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     _placesService = GoogleMapsPlaces(apiKey: dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '');
     _loadLocations();
     
-    // 设置位置更新回调
+    // Set location update callback
     _locationService.onLocationUpdated = _onLocationUpdated;
     
-    // 默认开启位置跟踪
+    // Default to location tracking
     _isTracking = true;
     _locationService.startLocationTracking();
 
-    // 获取初始位置
+    // Get initial position
     _getCurrentLocation();
 
-    // 根据场景自动选择样式
+    // Select style based on scene automatically
     _currentMapStyle = _getSceneRecommendation();
 
-    // 初始化事件系统
+    // Initialize event system
     _initEventSystem();
+    _loadCollectedCards();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _loadLocations(); // 在依赖变化时重新加载
+    _loadLocations(); // Reload when dependencies change
   }
 
-  // 初始化事件系统
+  // Initialize event system
   Future<void> _initEventSystem() async {
     await _eventService.loadEvents();
     _eventService.addOnEventDiscoveredListener(_onEventDiscovered);
     
-    // 如果当前可见区域有事件，生成新事件
+    // If there are events in the current visible area, generate new events
     if (_visibleRegion != null) {
       await _eventService.generateEventsInArea(_visibleRegion!, 5);
     }
   }
 
-  // 事件发现回调
+  // Event discovery callback
   void _onEventDiscovered(MapEvent event) {
     setState(() {
       _currentEvent = event;
@@ -1540,7 +1465,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     });
   }
 
-  // 显示事件对话框
+  // Show event dialog
   void _showEventDetails(MapEvent event) {
     showDialog(
       context: context,
@@ -1566,14 +1491,14 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('确定'),
+            child: const Text('OK'),
           ),
         ],
       ),
     );
   }
 
-  // 修改位置更新回调
+  // Modify location update callback
   void _onLocationUpdated(LocationPoint location) {
     setState(() {
       _currentPosition = LatLng(location.latitude, location.longitude);
@@ -1584,15 +1509,15 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
           markerId: markerId,
           position: _currentPosition,
           infoWindow: InfoWindow(
-            title: '当前位置',
-            snippet: '纬度: ${_currentPosition.latitude}, 经度: ${_currentPosition.longitude}',
+            title: 'Current Position',
+            snippet: 'Latitude: ${_currentPosition.latitude}, Longitude: ${_currentPosition.longitude}',
           ),
         ),
       );
       _clearPoints.add(_currentPosition);
     });
 
-    // 检查是否发现新事件
+    // Check for new event discovery
     _eventService.checkForEvents(_currentPosition);
   }
 
@@ -1606,7 +1531,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
           _clearPoints.add(LatLng(location.latitude, location.longitude));
         }
       });
-      // 自动跳转到历史点中心
+      // Automatically jump to historical point center
       if (_clearPoints.isNotEmpty && _mapController != null) {
         double avgLat = _clearPoints.map((e) => e.latitude).reduce((a, b) => a + b) / _clearPoints.length;
         double avgLng = _clearPoints.map((e) => e.longitude).reduce((a, b) => a + b) / _clearPoints.length;
@@ -1614,7 +1539,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
       print('_clearPoints: \n$_clearPoints');
     } catch (e) {
-      print('加载位置点时出错: $e');
+      print('Error loading location points: $e');
     }
   }
 
@@ -1625,8 +1550,11 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       controller.setMapStyle(_mapStyles[_currentMapStyle]);
     }
     
-    // 获取初始可见区域
+    // Get initial visible area
     _visibleRegion = await controller.getVisibleRegion();
+    
+    // 确保地图移动到当前位置
+    await _getCurrentLocation();
   }
 
   void _addMarker(LatLng position) {
@@ -1637,13 +1565,13 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
           markerId: const MarkerId('current_position'),
           position: position,
           infoWindow: InfoWindow(
-            title: '当前位置',
-            snippet: '纬度: ${position.latitude}, 经度: ${position.longitude}',
+            title: 'Current Position',
+            snippet: 'Latitude: ${position.latitude}, Longitude: ${position.longitude}',
           ),
         ),
       );
       
-      // 记录清除点
+      // Record clearing point
       _clearPoints.add(position);
     });
   }
@@ -1673,7 +1601,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       }
     } catch (e) {
       if (kDebugMode) {
-        print('搜索出错: $e');
+        print('Search error: $e');
       }
     }
   }
@@ -1697,7 +1625,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
     super.dispose();
   }
 
-  // 添加获取当前位置的方法
+  // Add method to get current location
   Future<void> _getCurrentLocation() async {
     try {
       final location = await _locationService.getCurrentLocation();
@@ -1709,13 +1637,126 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
         });
         
         // 移动地图到当前位置
-        _mapController?.animateCamera(
-          CameraUpdate.newLatLngZoom(_currentPosition, 18.0),
-        );
+        if (_mapController != null) {
+          await _mapController!.animateCamera(
+            CameraUpdate.newLatLngZoom(_currentPosition, _currentZoom),
+          );
+        }
+
+        // 在获取到位置后生成卡片
+        _randomCards = _generateRandomCards();
+        setState(() {}); // 触发UI更新以显示卡片
       }
     } catch (e) {
-      print('获取当前位置失败: $e');
+      print('Failed to get current location: $e');
     }
+  }
+
+  // Load collected cards
+  Future<void> _loadCollectedCards() async {
+    final cards = await _cardService.getCollectedCards();
+    setState(() {
+      _collectedCards = cards;
+    });
+  }
+
+  // Show card dialog
+  void _showCardDetails(CardModel card) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(card.title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(card.description),
+            const SizedBox(height: 8),
+            Text(
+              'Type: ${card.type}',
+              style: const TextStyle(
+                color: Colors.blue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Collect card
+  Future<void> _collectCard(CardModel card) async {
+    await _cardService.collectCard(card);
+    await _loadCollectedCards();
+    setState(() {
+      _showCardDialog = false;
+    });
+  }
+
+  // Generate random cards
+  List<CardModel> _generateRandomCards() {
+    final List<CardModel> cards = [];
+    final Random random = Random();
+    final List<String> themes = ['Food', 'Shopping', 'Entertainment', 'Culture', 'Nature', 'History'];
+    final List<IconData> icons = [
+      Icons.restaurant,
+      Icons.shopping_bag,
+      Icons.movie,
+      Icons.museum,
+      Icons.park,
+      Icons.history,
+    ];
+
+    // Generate cards around user position
+    for (int i = 0; i < 15; i++) {
+      final themeIndex = random.nextInt(themes.length);
+      cards.add(
+        CardModel(
+          id: DateTime.now().millisecondsSinceEpoch.toString() + i.toString(),
+          title: '${themes[themeIndex]} Card',
+          description: 'Enjoy special offers at ${themes[themeIndex].toLowerCase()} places',
+          type: themes[themeIndex],
+          icon: icons[themeIndex],
+          color: Colors.primaries[random.nextInt(Colors.primaries.length)],
+          position: _calculateRandomPosition(),
+        ),
+      );
+    }
+
+    return cards;
+  }
+
+  // Calculate random position
+  LatLng _calculateRandomPosition() {
+    final Random random = Random();
+    // 使用更小的随机范围，使卡片更集中在用户位置附近
+    final double latOffset = (random.nextDouble() - 0.5) * 0.002; // 从0.005减小到0.002
+    final double lngOffset = (random.nextDouble() - 0.5) * 0.002; // 从0.005减小到0.002
+    return LatLng(
+      _currentPosition.latitude + latOffset,
+      _currentPosition.longitude + lngOffset,
+    );
+  }
+
+  // 计算两点之间的距离（米）
+  double _calculateDistance(LatLng point1, LatLng point2) {
+    const double earthRadius = 6371000; // 地球半径（米）
+    final double lat1 = point1.latitude * (pi / 180);
+    final double lat2 = point2.latitude * (pi / 180);
+    final double dLat = (point2.latitude - point1.latitude) * (pi / 180);
+    final double dLng = (point2.longitude - point1.longitude) * (pi / 180);
+
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLng / 2) * sin(dLng / 2);
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
   }
 
   @override
@@ -1725,7 +1766,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
       builder: (context, constraints) {
         _mapSize = Size(constraints.maxWidth, constraints.maxHeight);
         
-        // 转换所有清除点的坐标
+        // Convert all clearing point coordinates
         final screenPoints = _clearPoints
             .map((latLng) => _latLngToScreenPoint(latLng))
             .where((point) => point != null && point.dx > 0 && point.dy > 0 && _mapSize != null && point.dx < _mapSize!.width && point.dy < _mapSize!.height)
@@ -1739,24 +1780,24 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
               onMapCreated: _onMapCreated,
               initialCameraPosition: CameraPosition(
                 target: _center,
-                zoom: 18.0,
-                tilt: 0, // 禁用3D旋转
+                zoom: 22.0,
+                tilt: 0,
               ),
               myLocationEnabled: false,
               myLocationButtonEnabled: false,
               zoomControlsEnabled: false,
               mapType: MapType.normal,
-              markers: {}, // 不显示Google Maps自带的Marker
+              markers: {}, // Do not display Google Maps default Marker
               onCameraMove: (CameraPosition position) async {
                 if (_mapController != null && mounted) {
                   _visibleRegion = await _mapController!.getVisibleRegion();
                   setState(() {
-                    _currentZoom = position.zoom; // 更新当前缩放级别
+                    _currentZoom = position.zoom; // Update current zoom level
                   });
                 }
               },
-              tiltGesturesEnabled: false, // 禁用倾斜手势
-              rotateGesturesEnabled: false, // 禁用旋转手势
+              tiltGesturesEnabled: false, // Disable tilt gestures
+              rotateGesturesEnabled: false, // Disable rotation gestures
               onTap: _isPlacingMode
                   ? (latLng) {
                       setState(() {
@@ -1778,16 +1819,16 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                       points: screenPoints,
                       radius: _eraserRadius,
                       opacity: _overlayOpacity,
-                      zoomLevel: _currentZoom, // 传递当前缩放级别
+                      zoomLevel: _currentZoom, // Pass current zoom level
                     ),
                     size: _mapSize ?? Size.zero,
                   ),
                 ),
               ),
-            // 自定义红色标记和发光白色圆点
+            // Custom red marker and glowing white dot
             if (_mapSize != null && _visibleRegion != null)
               ...[
-                // 红色标记（character1.png）
+                // Red marker (character1.png)
                 if (_latLngToScreenPoint(_currentPosition) != null)
                   Positioned(
                     left: _latLngToScreenPoint(_currentPosition)!.dx - 24,
@@ -1798,7 +1839,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                       height: 48,
                     ),
                   ),
-                // 蓝色发光圆点（真实位置）
+                // Blue glowing dot (actual position)
                 if (_latLngToScreenPoint(_center) != null)
                   Positioned(
                     left: _latLngToScreenPoint(_center)!.dx - 16,
@@ -1806,14 +1847,14 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                     child: _GlowingWhiteDot(),
                   ),
               ],
-            // 修改顶部搜索栏部分，添加样式选择按钮
+            // Modify top search bar part, add style selection button
             Positioned(
               top: 60,
               right: 15,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // 搜索栏
+                  // Search bar
                   AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.ease,
@@ -1839,7 +1880,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                           child: TextField(
                             controller: _searchController,
                             decoration: const InputDecoration(
-                              hintText: '搜索地点...',
+                              hintText: 'Search for location...',
                               border: InputBorder.none,
                               isDense: true,
                             ),
@@ -1858,12 +1899,12 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                           _isSearchBarOpen = !_isSearchBarOpen;
                         });
                       },
-                      tooltip: '搜索',
+                      tooltip: 'Search',
                     ),
                   ],
                 ),
                   ),
-                  // 样式选择按钮
+                  // Style selection button
                   const SizedBox(height: 10),
                   Container(
                     width: 56,
@@ -1881,7 +1922,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                     ),
                     child: PopupMenuButton<String>(
                       icon: const Icon(Icons.palette, color: Colors.white),
-                      tooltip: '选择地图样式',
+                      tooltip: 'Select map style',
                       onSelected: _changeMapStyle,
                       itemBuilder: (BuildContext context) {
                         return _mapStyles.keys.map((String styleName) {
@@ -1904,7 +1945,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 ],
               ),
             ),
-            // 添加熟悉度切换按钮
+            // Add familiarity switch button
             Positioned(
               bottom: 280,
               right: 20,
@@ -1922,16 +1963,16 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 ),
                 child: Column(
                   children: [
-                    // 位置跟踪开关
+                    // Location tracking switch
                     IconButton(
                       icon: Icon(
                         _isTracking ? Icons.location_on : Icons.location_off,
                         color: Colors.white,
                       ),
                       onPressed: _toggleTracking,
-                      tooltip: _isTracking ? '停止位置跟踪' : '开始位置跟踪',
+                      tooltip: _isTracking ? 'Stop location tracking' : 'Start location tracking',
                     ),
-                    // 熟悉度显示开关
+                    // Familiarity display switch
                     IconButton(
                       icon: Icon(
                         _isFamiliarityMode ? Icons.visibility : Icons.visibility_off,
@@ -1947,13 +1988,13 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                           }
                         });
                       },
-                      tooltip: _isFamiliarityMode ? '隐藏熟悉度' : '显示熟悉度',
+                      tooltip: _isFamiliarityMode ? 'Hide familiarity' : 'Show familiarity',
                     ),
                   ],
                 ),
               ),
             ),
-            // 添加缩放控制按钮
+            // Add zoom control button
             Positioned(
               bottom: 175,
               right: 20,
@@ -1971,7 +2012,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 ),
                 child: Column(
                   children: [
-                    // 放大按钮
+                    // Zoom in button
                     IconButton(
                       icon: const Icon(
                         Icons.add,
@@ -1984,9 +2025,9 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                           );
                         }
                       },
-                      tooltip: '放大',
+                      tooltip: 'Zoom in',
                     ),
-                    // 缩小按钮
+                    // Zoom out button
                     IconButton(
                       icon: const Icon(
                         Icons.remove,
@@ -1999,15 +2040,15 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                           );
                         }
                       },
-                      tooltip: '缩小',
+                      tooltip: 'Zoom out',
                     ),
                   ],
                 ),
               ),
             ),
-            // 添加定位按钮
+            // Add location button
             Positioned(
-              bottom: 120, // 底部位置
+              bottom: 120, // Bottom position
               right: 20,
               child: Container(
                 decoration: BoxDecoration(
@@ -2029,14 +2070,14 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                   onPressed: () {
                     if (_mapController != null) {
                       _mapController!.animateCamera(
-                        CameraUpdate.newLatLngZoom(_currentPosition, _currentZoom),
+                        CameraUpdate.newLatLngZoom(_currentPosition, 17.0),
                       );
                     }
                   },
                 ),
               ),
             ),
-            // 添加移动控制器和放置按钮
+            // Add movement controller and placement button
             Positioned(
               left: 20,
               bottom: 120,
@@ -2044,7 +2085,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 onDirectionChanged: _onJoystickDirectionChanged,
               ),
             ),
-            // 放置模式按钮
+            // Placement mode button
             Positioned(
               left: 20,
               bottom: 280,
@@ -2076,7 +2117,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 ),
               ),
             ),
-            // 添加事件对话框
+            // Add event dialog
             if (_showEventDialog && _currentEvent != null)
               Positioned.fill(
                 child: GestureDetector(
@@ -2127,7 +2168,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                             ],
                             const SizedBox(height: 20),
                             const Text(
-                              '点击查看详情',
+                              'Click to view details',
                               style: TextStyle(
                                 color: Colors.blue,
                                 decoration: TextDecoration.underline,
@@ -2140,7 +2181,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                   ),
                 ),
               ),
-            // 添加事件图标
+            // Add event icon
             if (_mapSize != null && _visibleRegion != null)
               ..._eventService.getUndiscoveredEvents().map((event) {
                 final screenPoint = _latLngToScreenPoint(event.position);
@@ -2179,6 +2220,114 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                   ),
                 );
               }).toList(),
+            // Add random cards
+            if (_currentZoom >= 17.0) // 修改为缩放级别大于等于17时显示卡片
+              ..._randomCards.map((card) {
+                final screenPoint = _latLngToScreenPoint(card.position);
+                if (screenPoint == null) return const SizedBox.shrink();
+                
+                // 计算卡片与角色的距离
+                final distance = _calculateDistance(_currentPosition, card.position);
+                // 设置激活距离为10米
+                final isActive = distance <= 10.0;
+                // 根据距离计算透明度
+                final opacity = isActive ? 0.8 : 0.3;
+                
+                return Positioned(
+                  left: screenPoint.dx - 24,
+                  top: screenPoint.dy - 24,
+                  child: GestureDetector(
+                    onTap: isActive ? () {
+                      setState(() {
+                        _currentCard = card;
+                        _showCardDialog = true;
+                      });
+                    } : null,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: isActive ? card.color.withOpacity(opacity) : Colors.grey.withOpacity(opacity),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: isActive ? card.color.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          card.icon,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            // Add card dialog
+            if (_showCardDialog && _currentCard != null)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showCardDialog = false;
+                    });
+                    _collectCard(_currentCard!);
+                  },
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _currentCard!.icon,
+                              size: 48,
+                              color: _currentCard!.color,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _currentCard!.title,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(_currentCard!.description),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Click to collect card',
+                              style: TextStyle(
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -2186,19 +2335,19 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
   }
 }
 
-// 修改发光白色圆点组件
+// Modify glowing white dot component
 class _GlowingWhiteDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 24, // 缩小整体尺寸
+      width: 24, // Reduce overall size
       height: 24,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withOpacity(0.5), // 发光更弱
-            blurRadius: 8, // 扩散范围更小
+            color: Colors.white.withOpacity(0.5), // Glow weaker
+            blurRadius: 8, // Spread range smaller
             spreadRadius: 3,
           ),
         ],
