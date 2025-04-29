@@ -2221,7 +2221,7 @@ class _GoogleMapPageState extends State<GoogleMapPage> with AutomaticKeepAliveCl
                 );
               }).toList(),
             // Add random cards
-            if (_currentZoom >= 17.0) // 修改为缩放级别大于等于17时显示卡片
+            if (_isFamiliarityMode && _currentZoom >= 17.0) // 只有在熟悉度模式下且缩放>=17才显示卡片
               ..._randomCards.map((card) {
                 final screenPoint = _latLngToScreenPoint(card.position);
                 if (screenPoint == null) return const SizedBox.shrink();
