@@ -27,7 +27,7 @@ jobs:
           distribution: microsoft
 
       #  Decode keystore File from repository secrets
-      #  Keep the keystore file private; don’t check it into public source control!
+      #  Keep the keystore file private; don't check it into public source control!
       
       #- name: Decode KeyStore File (.jks)            
       #  run: echo "${{ secrets.KEYSTORE_JKS_PROD }}" | base64 --decode > android/keystore.jks
@@ -52,6 +52,9 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'main'
+
+      - name: Clean Flutter project
+        run: flutter clean
 
       - name: Get Flutter dependencies      # Get the Libraries and Dependencies
         run: flutter pub get
