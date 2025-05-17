@@ -19,7 +19,7 @@ jobs:
       - name: Set up JDK              # Setup JAVA to build the Android APK for us
         uses: actions/setup-java@v3
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: microsoft
 
       #  Decode keystore File from repository secrets
@@ -59,13 +59,13 @@ jobs:
         run: flutter build appbundle --release
 
       - name: Save APK to Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: flutter-apk
           path: build/app/outputs/flutter-apk/*.apk
 
       - name: Save APPBUNDLE to Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: flutter-appbundle
           path: build/app/outputs/bundle/release/*.aab
