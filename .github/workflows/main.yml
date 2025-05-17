@@ -69,7 +69,7 @@ jobs:
         run: flutter build apk --release --no-tree-shake-icons
 
       - name: Build an AppBundle            # App Bundles are useful for Google Play Store
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --no-tree-shake-icons
 
       - name: Save APK to Artifacts
         uses: actions/upload-artifact@v4
