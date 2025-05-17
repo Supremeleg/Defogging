@@ -12,6 +12,10 @@ jobs:
     permissions:
       contents: write
 
+    defaults:
+      run:
+        working-directory: Defogging/defogging_app
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3     # Checkout the Repository on the Virtual Machine
