@@ -59,6 +59,9 @@ jobs:
       - name: Create .env file
         run: echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}" > .env
 
+      - name: Decode google-services.json
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > android/app/google-services.json
+
       - name: Get Flutter dependencies      # Get the Libraries and Dependencies
         run: flutter pub get
 
