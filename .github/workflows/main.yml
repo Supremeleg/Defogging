@@ -56,6 +56,9 @@ jobs:
       - name: Clean Flutter project
         run: flutter clean
 
+      - name: Create .env file
+        run: echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}" > .env
+
       - name: Get Flutter dependencies      # Get the Libraries and Dependencies
         run: flutter pub get
 
