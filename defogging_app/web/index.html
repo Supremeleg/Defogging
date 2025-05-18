@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Defogging - 智能地图导航应用</title>
+    <title>Defogging - Explore the Unknown City Adventure</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         @keyframes float {
@@ -15,116 +15,166 @@
             animation: float 6s ease-in-out infinite;
         }
         .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+        }
+        .feature-card {
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
         }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <div class="min-h-screen">
-        <!-- 导航栏 -->
-        <nav class="bg-white shadow-lg">
+        <!-- Navigation Bar -->
+        <nav class="bg-white shadow-lg fixed w-full z-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-16">
                     <div class="flex items-center">
                         <span class="text-2xl font-bold text-indigo-600">Defogging</span>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <a href="#features" class="text-gray-600 hover:text-indigo-600">功能</a>
-                        <a href="#download" class="text-gray-600 hover:text-indigo-600">下载</a>
-                        <a href="#contact" class="text-gray-600 hover:text-indigo-600">联系我们</a>
+                        <a href="#features" class="text-gray-600 hover:text-indigo-600">Features</a>
+                        <a href="#screenshots" class="text-gray-600 hover:text-indigo-600">Screenshots</a>
+                        <a href="#download" class="text-gray-600 hover:text-indigo-600">Download</a>
+                        <a href="#contact" class="text-gray-600 hover:text-indigo-600">Contact</a>
                     </div>
                 </div>
             </div>
         </nav>
 
-        <!-- 英雄区域 -->
-        <div class="gradient-bg text-white">
+        <!-- Hero Section -->
+        <div class="gradient-bg text-white pt-24">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div>
-                        <h1 class="text-4xl md:text-6xl font-bold mb-6">智能地图导航</h1>
-                        <p class="text-xl mb-8">探索城市，发现精彩。Defogging 为您提供最智能的地图导航体验。</p>
-                        <a href="#download" class="bg-white text-indigo-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition duration-300">
-                            立即下载
-                        </a>
+                        <h1 class="text-4xl md:text-6xl font-bold mb-6">Explore the Unknown City Adventure</h1>
+                        <p class="text-xl mb-8">Transform your city into an endless exploration game. Move around to clear the fog, collect familiarity points, unlock special events, and earn rewards.</p>
+                        <div class="flex space-x-4">
+                            <a href="#download" class="bg-white text-indigo-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100 transition duration-300">
+                                Download Now
+                            </a>
+                            <a href="#features" class="border-2 border-white text-white px-8 py-3 rounded-full font-semibold hover:bg-white hover:text-indigo-600 transition duration-300">
+                                Learn More
+                            </a>
+                        </div>
                     </div>
                     <div class="float-animation">
-                        <img src="assets/character1.png" alt="App Preview" class="w-full max-w-lg mx-auto">
+                        <img src="../../Images/brand.png" alt="Defogging Brand" class="w-full max-w-lg mx-auto">
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 功能特点 -->
+        <!-- Features Section -->
         <div id="features" class="py-20 bg-white">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h2 class="text-3xl font-bold text-center mb-12">主要功能</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div class="p-6 bg-gray-50 rounded-lg">
-                        <div class="text-indigo-600 text-4xl mb-4">🗺️</div>
-                        <h3 class="text-xl font-semibold mb-2">智能导航</h3>
-                        <p class="text-gray-600">基于实时路况的智能路线规划，让您的出行更加便捷。</p>
+                <h2 class="text-3xl font-bold text-center mb-12">Core Features</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                    <div class="feature-card p-6 bg-gray-50 rounded-lg">
+                        <div class="text-indigo-600 text-4xl mb-4">🌫️</div>
+                        <h3 class="text-xl font-semibold mb-2">Fog Exploration System</h3>
+                        <p class="text-gray-600">Clear the fog on the map by moving around and discover new areas and surprises.</p>
                     </div>
-                    <div class="p-6 bg-gray-50 rounded-lg">
-                        <div class="text-indigo-600 text-4xl mb-4">📍</div>
-                        <h3 class="text-xl font-semibold mb-2">位置服务</h3>
-                        <p class="text-gray-600">精准的定位服务，让您随时掌握当前位置。</p>
+                    <div class="feature-card p-6 bg-gray-50 rounded-lg">
+                        <div class="text-indigo-600 text-4xl mb-4">⭐</div>
+                        <h3 class="text-xl font-semibold mb-2">Familiarity System</h3>
+                        <p class="text-gray-600">Earn familiarity points through exploration and unlock area privileges.</p>
                     </div>
-                    <div class="p-6 bg-gray-50 rounded-lg">
-                        <div class="text-indigo-600 text-4xl mb-4">🌍</div>
-                        <h3 class="text-xl font-semibold mb-2">地理信息</h3>
-                        <p class="text-gray-600">丰富的地理信息数据，助您探索城市每个角落。</p>
+                    <div class="feature-card p-6 bg-gray-50 rounded-lg">
+                        <div class="text-indigo-600 text-4xl mb-4">🎯</div>
+                        <h3 class="text-xl font-semibold mb-2">Event System</h3>
+                        <p class="text-gray-600">Randomly triggered special events and tasks that make exploration exciting.</p>
+                    </div>
+                    <div class="feature-card p-6 bg-gray-50 rounded-lg">
+                        <div class="text-indigo-600 text-4xl mb-4">🎁</div>
+                        <h3 class="text-xl font-semibold mb-2">Reward System</h3>
+                        <p class="text-gray-600">Collect virtual items and achievements to showcase your exploration results.</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 下载区域 -->
-        <div id="download" class="py-20 bg-gray-50">
+        <!-- Screenshots Section -->
+        <div id="screenshots" class="py-20 bg-gray-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h2 class="text-3xl font-bold text-center mb-12">下载应用</h2>
+                <h2 class="text-3xl font-bold text-center mb-12">App Screenshots</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                    <div class="rounded-lg overflow-hidden shadow-lg">
+                        <img src="../../Images/screenshot1.png" alt="Home Page" class="w-full">
+                        <div class="p-4 bg-white">
+                            <p class="text-gray-600">Real-time Map Exploration</p>
+                        </div>
+                    </div>
+                    <div class="rounded-lg overflow-hidden shadow-lg">
+                        <img src="../../Images/screenshot2.png" alt="Tasks Page" class="w-full">
+                        <div class="p-4 bg-white">
+                            <p class="text-gray-600">Tasks & Collections</p>
+                        </div>
+                    </div>
+                    <div class="rounded-lg overflow-hidden shadow-lg">
+                        <img src="../../Images/screenshot3.png" alt="Community Page" class="w-full">
+                        <div class="p-4 bg-white">
+                            <p class="text-gray-600">Community Interaction</p>
+                        </div>
+                    </div>
+                    <div class="rounded-lg overflow-hidden shadow-lg">
+                        <img src="../../Images/screenshot4.png" alt="Profile Page" class="w-full">
+                        <div class="p-4 bg-white">
+                            <p class="text-gray-600">Personal Achievements</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Section -->
+        <div id="download" class="py-20 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-3xl font-bold text-center mb-12">Download Now</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <a href="#" class="block p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition duration-300">
+                    <a href="#" class="block p-6 bg-gray-50 rounded-lg shadow-lg hover:shadow-xl transition duration-300">
                         <div class="text-4xl mb-4">📱</div>
-                        <h3 class="text-xl font-semibold mb-2">iOS 版本</h3>
-                        <p class="text-gray-600">App Store 下载</p>
+                        <h3 class="text-xl font-semibold mb-2">iOS Version</h3>
+                        <p class="text-gray-600">Download on App Store</p>
                     </a>
-                    <a href="#" class="block p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition duration-300">
+                    <a href="#" class="block p-6 bg-gray-50 rounded-lg shadow-lg hover:shadow-xl transition duration-300">
                         <div class="text-4xl mb-4">🤖</div>
-                        <h3 class="text-xl font-semibold mb-2">Android 版本</h3>
-                        <p class="text-gray-600">Google Play 下载</p>
+                        <h3 class="text-xl font-semibold mb-2">Android Version</h3>
+                        <p class="text-gray-600">Download on Google Play</p>
                     </a>
-                    <a href="#" class="block p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition duration-300">
+                    <a href="#" class="block p-6 bg-gray-50 rounded-lg shadow-lg hover:shadow-xl transition duration-300">
                         <div class="text-4xl mb-4">💻</div>
-                        <h3 class="text-xl font-semibold mb-2">Windows 版本</h3>
-                        <p class="text-gray-600">Windows 商店下载</p>
+                        <h3 class="text-xl font-semibold mb-2">Windows Version</h3>
+                        <p class="text-gray-600">Download on Windows Store</p>
                     </a>
                 </div>
             </div>
         </div>
 
-        <!-- 联系我们 -->
-        <div id="contact" class="py-20 bg-white">
+        <!-- Contact Section -->
+        <div id="contact" class="py-20 bg-gray-50">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h2 class="text-3xl font-bold text-center mb-12">联系我们</h2>
+                <h2 class="text-3xl font-bold text-center mb-12">Contact Us</h2>
                 <div class="max-w-2xl mx-auto text-center">
-                    <p class="text-gray-600 mb-8">如果您有任何问题或建议，请随时与我们联系。</p>
-                    <a href="mailto:support@defogging.com" class="inline-block bg-indigo-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-indigo-700 transition duration-300">
-                        发送邮件
+                    <p class="text-gray-600 mb-8">If you have any questions or suggestions, feel free to contact us.</p>
+                    <a href="mailto:wangqijie77@gmail.com" class="inline-block bg-indigo-600 text-white px-8 py-3 rounded-full font-semibold hover:bg-indigo-700 transition duration-300">
+                        Send Email
                     </a>
                 </div>
             </div>
         </div>
 
-        <!-- 页脚 -->
+        <!-- Footer -->
         <footer class="bg-gray-800 text-white py-12">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center">
                     <p class="mb-4">© 2024 Defogging. All rights reserved.</p>
                     <div class="flex justify-center space-x-4">
-                        <a href="#" class="hover:text-indigo-400">隐私政策</a>
-                        <a href="#" class="hover:text-indigo-400">使用条款</a>
-                        <a href="#" class="hover:text-indigo-400">关于我们</a>
+                        <a href="#" class="hover:text-indigo-400">Privacy Policy</a>
+                        <a href="#" class="hover:text-indigo-400">Terms of Use</a>
+                        <a href="#" class="hover:text-indigo-400">About Us</a>
                     </div>
                 </div>
             </div>

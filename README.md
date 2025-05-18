@@ -7,8 +7,12 @@
 **Defogging** is a gamified exploration app that transforms your city—whether home or away—into an ever‑unfolding adventure. Borrowing the *fog‑of‑war* concept from MOBA games, every neighborhood starts out hidden. Walk, cycle, or ride through the streets to **defog** new blocks, earn **Familiarity Points**, unlock **events**, and collect **rewards**. It's not just navigation—it's discovery.
 
 ---
+<p align="center">
+  <img src="Images/gif.gif" alt="Defogging App Demo" width="50%"/>
+</p>
 
-## 📱 Download
+
+## 📱 Application
 - [GitHub Repository](https://github.com/yourusername/Defogging)
 - [Demo Video](https://youtube.com/shorts/O45IaVPTUWo)
 - [Web App](defogging_app/web/index.html)
@@ -40,13 +44,30 @@ Defogging is an innovative city exploration app designed to help users experienc
   <img src="Images/low fidelity.png" alt="Low Fidelity Design" width="100%"/>
 </p>
 
-## 📸 Screenshots
+## 📸 Pages
 <p align="center">
-  <img src="Images/screenshot1.png" alt="Defogging App Screenshot 1" width="45%"/>
-  <img src="Images/screenshot2.png" alt="Defogging App Screenshot 2" width="45%"/>
-  <img src="Images/screenshot3.png" alt="Defogging App Screenshot 3" width="45%"/>
-  <img src="Images/screenshot4.png" alt="Defogging App Screenshot 4" width="45%"/>
+  <img src="Images/screenshot1.png" alt="Defogging App Screenshot 1" width="20%" style="margin-right: 12px;"/>
+  <img src="Images/screenshot2.png" alt="Defogging App Screenshot 2" width="20%" style="margin-right: 12px;"/>
+  <img src="Images/screenshot3.png" alt="Defogging App Screenshot 3" width="20%" style="margin-right: 12px;"/>
+  <img src="Images/screenshot4.png" alt="Defogging App Screenshot 4" width="20%"/>
 </p>
+
+1. The Home page directly presents an interactive map, allowing users to explore in real time, unlock new areas, and earn rewards. （The joystick in the lower left corner is used in test mode to simulate user GPS movement and will be removed in the official release.）
+2. Tasks/Features page: Displays exploration tasks and card collection progress for different areas. Users can select target areas and track achievements. (In development, features not fully implemented yet)
+3. Community page: Users can share exploration experiences, post updates, and join discussions to enhance social interaction. (In development, features not fully implemented yet)
+4. Profile page: Shows user information, virtual cards, and achievements, and supports account management and personalization. (In development, features not fully implemented yet)
+
+## 🗺️ Explore
+<p align="center">
+  <img src="Images/explore.png" alt="Explore Features" width="100%"/>
+</p>
+
+## 🎨 Map Styles
+<p align="center">
+  <img src="Images/styles.png" alt="App Styles" width="100%"/>
+</p>
+
+
 
 ## 💻 Development Environment
 - Flutter SDK: 3.0.0 or higher

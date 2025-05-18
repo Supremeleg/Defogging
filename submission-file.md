@@ -3,7 +3,7 @@
 ## Link to GitHub Repository
 
 Flutter Application Name - Defogging
-GitHub Repository - [https://github.com/Supremeleg/Defogging](https://github.com/yourusername/Defogging)
+GitHub Repository - [https://github.com/Supremeleg/Defogging](https://github.com/Supremeleg/Defogging)
 
 ## Introduction to Application
 
